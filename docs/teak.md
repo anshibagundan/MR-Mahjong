@@ -32,16 +32,9 @@
 - [ ] `ws://<host>/ws/game?roomId=<id>` 接続ハンドラ
 - [ ] セッション/ルーム管理（メモリ内）
 - [ ] 接続/切断イベント、`player_joined` 通知
-- [ ] 初回配信: `type: initial_state`（実体は `init` で `tehai/yama/wanpai/oya/scores`）
-- [ ] Action 受信: `type: dahai`（`payload.tile`）
-- [ ] Event 送信: `type: event`（`payload.playerId/tehai/nextTurn/kawa`）
+- [ ] Action 受信: `discard_tile`, `pon`, `kan`, `ron`, `tsumo`
+- [ ] Event 送信: `game_started`, `player_drew_tile`, `player_discarded`, `next_turn`, `game_result`
 - [ ] 最低限のメッセージバリデーション/エラー応答
-
-2.1) WebSocket: スコア集計 [FR-07, FR-08]
-- [ ] `ws://<host>/ws/score?roomId=<id>` 接続ハンドラ（ゲームWSと同時接続）
-- [ ] Client入力: `type: score_input`（`payload.playerId/currentScores(hand map)/win{winnerId, handTiles, yaku[], doras}`）
-- [ ] 集約: 3人分受領で計算（実装は段階的に1人からの受信でも即返却可）
-- [ ] Server返却: `type: score_result`（`payload.{deltas, newScores, winnerId, han}`）
 
 3) ゲームロジック（3人麻雀MVP）[FR-03, FR-04, FR-05, FR-06]
 - [ ] 山/手牌/捨て牌の管理
