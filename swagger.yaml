@@ -1,0 +1,382 @@
+openapi: 3.0.3
+info:
+  title: MR-Mahjong API
+  version: 0.1.0
+  description: |
+    REST API と WebSocket のインターフェース定義。
+    - REST: ゲームルームや基本情報の取得
+    - WebSocket: リアルタイムなゲーム/チャットメッセージ送受信
+servers:
+  - url: http://localhost:8080
+    description: Local HTTP server
+  - url: ws://localhost:8080
+    description: Local WebSocket server (documented via 200 responses and examples)
+tags:
+  - name: REST
+    description: HTTP REST endpoints
+  - name: WebSocket
+    description: WebSocket connection and message shapes (documented as 200 responses)
+paths:
+  /health:
+    get:
+      tags: [REST]
+      summary: Health check
+      description: サーバの稼働確認。
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+  /api/v1/rooms:
+    get:
+      tags: [REST]
+      summary: List rooms
+      description: ルーム一覧を取得します。
+      responses:
+        '200':
+          description: 取得成功
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Room'
+              examples:
+                sample:
+                  summary: サンプル
+                  value:
+                    - id: room-123
+                      name: East Wind Table
+                      players:
+                        - id: p1
+                          name: Alice
+                        - id: p2
+                          name: Bob
+                      createdAt: '2025-09-29T12:00:00Z'
+    post:
+      tags: [REST]
+      summary: Create room
+      description: 新しいルームを作成します。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRoomRequest'
+            examples:
+              create:
+                value:
+                  name: Friendly Table
+      responses:
+        '201':
+          description: 作成成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Room'
+  /api/v1/rooms/{roomId}:
+    parameters:
+      - $ref: '#/components/parameters/RoomId'
+    get:
+      tags: [REST]
+      summary: Get room
+      responses:
+        '200':
+          description: 取得成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Room'
+    delete:
+      tags: [REST]
+      summary: Delete room
+      responses:
+        '204':
+          description: 削除成功
+  /ws/game:
+    get:
+      tags: [WebSocket]
+      summary: WebSocket - Game stream (room state authority)
+      description: |
+        ルームIDをクエリパラメータに付与して接続するゲーム用WebSocket。
+        サーバーは対局状態の唯一の権威であり、初回に各クライアントの手牌/公開情報/ワンパイ状態等を配信し、以降のイベントで更新を通知します。
+        クライアントは受信した状態に合わせて手牌を並び替え、打牌などのアクションをJSONメッセージで送信します。
+        複数種類のメッセージを送信するのでtypeを
+      parameters:
+        - in: query
+          name: roomId
+          required: true
+          schema:
+            type: string
+          description: ルームID
+      responses:
+        '200':
+          description: 接続直後の初期配信（仕様上 200 として例示）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameInitialState'
+              examples:
+                initial:
+                  summary: 初回配信（各クライアント視点の手牌含む）サーバー→クライアント
+                  value:
+                    type: init
+                    playerId: p1
+                    payload:
+                      tehai: [1m,1m,2m,3m,3m,4p,4p,5p,6p,7s,7s,7s,白]
+                      yama: [1s,1s,1s,2s,3s,4s,5s,6s,7s,8s,9s,9s,9s,...]
+                      wanpai: { doraIndicators: [2p]}
+                      round: east1
+                      oya: p2
+                      scores: { p1: 25000, p2: 25000, p3: 25000 }
+                client_discard_action:
+                  summary: クライアント→サーバー 打牌アクション例
+                  value:
+                    type: dahai
+                    payload:
+                      tile: 5p
+                server_discard_event:
+                  summary: サーバー→クライアント 打牌結果イベント
+                  value:
+                    type: event
+                    payload:
+                      playerId: p1
+                      tehai: [1m,1m,2m,3m,3m,4p,4p,5p,6p,7s,7s,7s,白]
+                      nextTurn: p2
+                      kawa: { p1: [5p, 9s], p2: [6s], p3: [9w]}
+
+  /ws/score:
+    get:
+      tags: [WebSocket]
+      summary: WebSocket - Scoring stream (result aggregation)
+      description: |
+        スコア用WebSocket。`roomId` をクエリに付与して接続します。
+        各クライアントは現在の点数と、和了時の手牌構成（面子/待ち/ドラ枚数など必要最小限）をメッセージでサーバーへ送信します。
+        3人分の入力が揃ったら、サーバーは各プレイヤーに対応する点数の増減（差分）を計算して返し、和了者には翻数も返却します。
+        ws/gameと同じタイミングで接続し続けてください
+      parameters:
+        - in: query
+          name: roomId
+          required: true
+          schema:
+            type: string
+          description: ルームID
+      responses:
+        '200':
+          description: メッセージ例（仕様上 200 として例示）
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/ScoreInputMessage'
+                  - $ref: '#/components/schemas/ScoreResultMessage'
+              examples:
+                client_score_input:
+                  summary: クライアント→サーバー 現在点数と和了手牌の送信(あがったクライアントのみ)
+                  value:
+                    playerId: p1
+                    CurrentScores: { p1: 25000, p2: 25000, p3: 25000 }
+                    win:
+                      winnerId: p1
+                      tehai: [1m,2m,3m,1m,2m,3m,7s,7s,7s,白,白,白,5p,5p]
+                      yaku: [門前清自摸和, 役牌(白)]
+                      doras: 2
+                server_score_result:
+                  summary: サーバー→クライアント 集計結果(1クライアントでもメッセージを送信したら自動で返す)
+                  value:
+                    payload:
+                      deltas: { p1: +4000, p2: -2000, p3: -2000 }
+                      newScores: { p1: 29000, p2: 23000, p3: 23000 }
+                      winnerId: p1
+                      han: 2
+components:
+  parameters:
+    RoomId:
+      name: roomId
+      in: path
+      required: true
+      schema:
+        type: string
+      description: ルームID
+  schemas:
+    Room:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        players:
+          type: array
+          items:
+            $ref: '#/components/schemas/Player'
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, name, players, createdAt]
+    Player:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+      required: [id, name]
+    CreateRoomRequest:
+      type: object
+      properties:
+        name:
+          type: string
+      required: [name]
+    GameInitialState:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [initial_state]
+        roomId:
+          type: string
+        playerId:
+          type: string
+        payload:
+          type: object
+          properties:
+            handTiles:
+              type: array
+              items:
+                type: string
+            riverTiles:
+              type: array
+              items:
+                type: string
+            wanpai:
+              type: object
+              properties:
+                doraIndicators:
+                  type: array
+                  items:
+                    type: string
+                remainingCount:
+                  type: integer
+            openMelds:
+              type: array
+              items:
+                type: string
+            round:
+              type: string
+            dealer:
+              type: string
+            scores:
+              type: object
+              additionalProperties:
+                type: integer
+      required: [type, roomId, payload]
+    ClientActionMessage:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [action]
+        action:
+          type: string
+          enum: [discard_tile, pon, kan, ron, tsumo]
+        payload:
+          type: object
+          properties:
+            tile:
+              type: string
+            messageId:
+              type: string
+      required: [type, action]
+    ServerEventMessage:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [event]
+        event:
+          type: string
+          enum: [game_started, player_drew_tile, player_discarded, next_turn, game_result, player_joined]
+        payload:
+          type: object
+      required: [type, event]
+    PingMessage:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [ping]
+        timestamp:
+          type: string
+          format: date-time
+      required: [type]
+    PongMessage:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [pong]
+        timestamp:
+          type: string
+          format: date-time
+      required: [type]
+    ScoreInputMessage:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [score_input]
+        payload:
+          type: object
+          properties:
+            playerId:
+              type: string
+            currentScores:
+              type: object
+              additionalProperties:
+                type: integer
+            win:
+              type: object
+              properties:
+                winnerId:
+                  type: string
+                handTiles:
+                  type: array
+                  items:
+                    type: string
+                yaku:
+                  type: array
+                  items:
+                    type: string
+                doras:
+                  type: integer
+      required: [type, payload]
+    ScoreResultMessage:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [score_result]
+        payload:
+          type: object
+          properties:
+            deltas:
+              type: object
+              additionalProperties:
+                type: integer
+            newScores:
+              type: object
+              additionalProperties:
+                type: integer
+            winnerId:
+              type: string
+            han:
+              type: integer
+      required: [type, payload]
+
