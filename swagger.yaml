@@ -114,7 +114,7 @@ paths:
               sample:
                 summary: リーチ自摸 + 白
                 value:
-                  handTiles: [1m,1m,2m,3m,3m,4p,4p,5p,6p,7s,7s,7s,白,白]
+                  tehai: [1m,1m,2m,3m,3m,4p,4p,5p,6p,7s,7s,7s,白,白]
                   openMelds:
                     - type: pon
                       tiles: [白, 白, 白]
@@ -173,7 +173,12 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GameInitialState'
+                oneOf:
+                  - $ref: '#/components/schemas/GameInitialState'
+                  - $ref: '#/components/schemas/ClientActionMessage'
+                  - $ref: '#/components/schemas/ServerEventMessage'
+                  - $ref: '#/components/schemas/PingMessage'
+                  - $ref: '#/components/schemas/PongMessage'
               examples:
                 initial:
                   summary: 初回配信（各クライアント視点の手牌含む）サーバー→クライアント
@@ -182,9 +187,10 @@ paths:
                     playerId: p1
                     payload:
                       tehai: [1m,1m,2m,3m,3m,4p,4p,5p,6p,7s,7s,7s,白]
-                      wanpai: { doras: [2p, ]}
+                      wanpai: { revealDora: 2p, UnrevealedDoras: [1s, 2s, ...], rinsyan: [1p, 2p, ...]}
+                      yama: [4s, 5s, ...]
                       round: east1
-                      dealer: p2
+                      oya: p2
                       scores: { p1: 25000, p2: 25000, p3: 25000 }
                 client_discard_action:
                   summary: クライアント→サーバー 打牌アクション例
@@ -193,17 +199,13 @@ paths:
                     payload:
                       playerId: p1
                       tile: 9s
-                      tehai: [1m,1m,2m,3m,3m,4p,4p,5p,6p,7s,7s,7s,白]
-                      kawa: { p1: [5p], p2: [6s], p3: [9w]}
                 server_discard_event:
                   summary: サーバー→クライアント 打牌結果イベント（ブロードキャスト）
                   value:
                     type: event
                     payload:
                       playerId: p2
-                      tehai: [1m,1m,2m,3m,3m,4p,4p,5p,6p,7s,7s,7s,白]
                       nextTurn: p2
-                      kawa: { p1: [5p, 9s], p2: [6s], p3: [9w]}
                 client_kan_action:
                   summary: クライアント→サーバー 槓宣言（加槓の例）
                   value:
@@ -359,7 +361,7 @@ components:
       properties:
         type:
           type: string
-          enum: [initial_state]
+          enum: [init]
         roomId:
           type: string
         playerId:
@@ -367,7 +369,7 @@ components:
         payload:
           type: object
           properties:
-            handTiles:
+            tehai:
               type: array
               items:
                 type: string
@@ -378,25 +380,35 @@ components:
             wanpai:
               type: object
               properties:
-                doraIndicators:
+                revealDora:
+                  type: string
+                UnrevealedDoras:
+                  type: array
+                  items:
+                    type: string
+                rinsyan:
                   type: array
                   items:
                     type: string
                 remainingCount:
                   type: integer
+            yama:
+              type: array
+              items:
+                type: string
             openMelds:
               type: array
               items:
                 $ref: '#/components/schemas/OpenMeld'
             round:
               type: string
-            dealer:
+            oya:
               type: string
             scores:
               type: object
               additionalProperties:
                 type: integer
-      required: [type, roomId, payload]
+      required: [type, payload]
     ClientActionMessage:
       type: object
       properties:
@@ -405,7 +417,7 @@ components:
           enum: [action]
         action:
           type: string
-          enum: [discard_tile, pon, kan, ron, tsumo]
+          enum: [dahai, pon, kan, ron, tsumo]
         payload:
           type: object
           properties:
@@ -474,6 +486,8 @@ components:
           properties:
             playerId:
               type: string
+            round:
+              type: string
             currentScores:
               type: object
               additionalProperties:
@@ -525,7 +539,7 @@ components:
     YakuEvaluationRequest:
       type: object
       properties:
-        handTiles:
+        tehai:
           type: array
           items:
             type: string
@@ -565,7 +579,7 @@ components:
           type: array
           items:
             type: string
-      required: [handTiles, isTsumo]
+      required: [tehai, isTsumo]
     YakuEvaluationResponse:
       type: object
       properties:
