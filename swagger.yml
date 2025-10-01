@@ -1,0 +1,263 @@
+openapi: 3.0.3
+info:
+  title: Mahjong Game Backend API
+  version: 1.0.0
+  description: |
+    3人麻雀ゲームのバックエンドAPI（最小限実装）
+    - ヘルスチェック
+    - WebSocket接続確認
+    - 初回配牌（3人揃った時）
+servers:
+  - url: http://localhost:8080
+    description: Local server
+tags:
+  - name: health
+    description: ヘルスチェック
+  - name: websocket
+    description: WebSocket接続とメッセージ
+paths:
+  /health:
+    get:
+      tags: [health]
+      summary: Health check endpoint
+      description: サーバーの稼働状況を確認するエンドポイント
+      responses:
+        '200':
+          description: サーバー稼働中
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "ok"
+                  service:
+                    type: string
+                    example: "mahjong-backend"
+                  version:
+                    type: string
+                    example: "1.0.0"
+              example:
+                status: "ok"
+                service: "mahjong-backend"
+                version: "1.0.0"
+  /ws/game:
+    get:
+      tags: [websocket]
+      summary: WebSocket connection for mahjong game
+      description: |
+        麻雀ゲーム用のWebSocket接続エンドポイント（最小限実装）
+
+        ## 実装済み機能:
+        1. **接続確認** (クライアント→サーバー): connection_check
+        2. **接続応答** (サーバー→クライアント): connection_response
+        3. **初回配牌** (サーバー→クライアント): game_start (3人揃った時)
+
+        ## 牌の仕様:
+        - 萬子: 1m-9m (各4枚)
+        - 筒子: 1p-9p (5pは通常3枚+赤ドラ5pr 1枚)
+        - 索子: 1s-9s (5sは通常3枚+赤ドラ5sr 1枚)
+        - 字牌: ton,nan,sya,pe,haku,hatu,chun (各4枚)
+        - 総数: 108枚
+
+        ## 配牌:
+        - 各プレイヤー: 13枚
+        - 王牌: 14枚
+        - 山牌: 55枚
+      responses:
+        '101':
+          description: WebSocket接続成功
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/ConnectionCheckMessage'
+                  - $ref: '#/components/schemas/ConnectionResponseMessage'
+                  - $ref: '#/components/schemas/GameStartMessage'
+              examples:
+                connection_check:
+                  summary: 接続確認 (クライアント→サーバー)
+                  value:
+                    type: "connection_check"
+                    data:
+                      playerId: "player-uuid-1"
+                connection_response:
+                  summary: 接続応答 (サーバー→クライアント)
+                  value:
+                    type: "connection_response"
+                    data:
+                      playerId: "player-uuid-1"
+                      playersCount: 1
+                      maxPlayers: 3
+                      status: "waiting"
+                      message: "接続確認完了"
+                game_start:
+                  summary: 初回配牌 (サーバー→クライアント)
+                  value:
+                    type: "game_start"
+                    data:
+                      playerId: "player-uuid-1"
+                      tehai: ["1m","9m","1p","2p","3p","4p","5p","6p","7p","8p","9p","1s","2s","3s"]
+                      wanpai:
+                        revealedDora: ["2p"]
+                        unrevealedDoras: ["1s","2s","3s","4s"]
+                        rinsyan: ["1p","2p","3p","4p","5p","6p","7p","8p"]
+                      yama: ["4s","5s","6s","7s","8s","9s","ton","nan"]
+                      players:
+                        - id: "player-uuid-1"
+                          tehai: ["1m","9m","1p","2p","3p","4p","5p","6p","7p","8p","9p","1s","2s","3s"]
+                          isHost: true
+                        - id: "player-uuid-2"
+                          tehai: ["4s","5s","6s","7s","8s","9s","ton","nan","sya","pe","haku","hatu","chun"]
+                          isHost: false
+                        - id: "player-uuid-3"
+                          tehai: ["5pr","5sr","1m","9m","1p","2p","3p","4p","5p","6p","7p","8p","9p"]
+                          isHost: false
+        '400':
+          description: WebSocket接続失敗
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: "Failed to upgrade to WebSocket"
+components:
+  schemas:
+    # WebSocket Messages
+    ConnectionCheckMessage:
+      type: object
+      description: 初回配信接続確認メッセージ (クライアント→サーバー)
+      properties:
+        type:
+          type: string
+          enum: ["connection_check"]
+        data:
+          type: object
+          properties:
+            playerId:
+              type: string
+              description: プレイヤーのユニークID
+          required: [playerId]
+      required: [type, data]
+
+    ConnectionResponseMessage:
+      type: object
+      description: 接続確認応答メッセージ (サーバー→クライアント)
+      properties:
+        type:
+          type: string
+          enum: ["connection_response"]
+        data:
+          type: object
+          properties:
+            playerId:
+              type: string
+              description: プレイヤーのユニークID
+            playersCount:
+              type: integer
+              description: 現在の接続プレイヤー数
+            maxPlayers:
+              type: integer
+              description: 最大プレイヤー数 (3人)
+            status:
+              type: string
+              description: ゲームの状態
+              enum: ["waiting", "playing", "finished"]
+            message:
+              type: string
+              description: 応答メッセージ
+          required: [playerId, playersCount, maxPlayers, status, message]
+      required: [type, data]
+
+    GameStartMessage:
+      type: object
+      description: ゲーム開始メッセージ (サーバー→クライアント)
+      properties:
+        type:
+          type: string
+          enum: ["game_start"]
+        data:
+          type: object
+          properties:
+            playerId:
+              type: string
+              description: このメッセージを受信するプレイヤーのID
+            tehai:
+              type: array
+              description: プレイヤーの手牌 (13枚)
+              items:
+                $ref: '#/components/schemas/Tile'
+            wanpai:
+              $ref: '#/components/schemas/Wanpai'
+            yama:
+              type: array
+              description: 山牌
+              items:
+                $ref: '#/components/schemas/Tile'
+            players:
+              type: array
+              description: 全プレイヤーの情報
+              items:
+                $ref: '#/components/schemas/Player'
+          required: [playerId, tehai, wanpai, yama, players]
+      required: [type, data]
+
+    # Game Entities
+    Tile:
+      type: string
+      description: 麻雀牌
+      enum: [
+        # 萬子
+        "1m", "2m", "3m", "4m", "5m", "6m", "7m", "8m", "9m",
+        # 筒子
+        "1p", "2p", "3p", "4p", "5p", "6p", "7p", "8p", "9p",
+        # 索子
+        "1s", "2s", "3s", "4s", "5s", "6s", "7s", "8s", "9s",
+        # 字牌
+        "ton", "nan", "sya", "pe", "haku", "hatu", "chun",
+        # 赤ドラ
+        "5pr", "5sr"
+      ]
+
+    Wanpai:
+      type: object
+      description: 王牌の情報
+      properties:
+        revealedDora:
+          type: array
+          description: 表示されたドラ
+          items:
+            $ref: '#/components/schemas/Tile'
+        unrevealedDoras:
+          type: array
+          description: 裏ドラ
+          items:
+            $ref: '#/components/schemas/Tile'
+        rinsyan:
+          type: array
+          description: 嶺上牌
+          items:
+            $ref: '#/components/schemas/Tile'
+      required: [revealedDora, unrevealedDoras, rinsyan]
+
+    Player:
+      type: object
+      description: プレイヤー情報
+      properties:
+        id:
+          type: string
+          description: プレイヤーのユニークID
+        tehai:
+          type: array
+          description: |
+            手牌。要求したプレイヤー自身の場合は実際の牌が入る。
+            他のプレイヤーの場合は空配列または牌数分の空要素。
+          items:
+            $ref: '#/components/schemas/Tile'
+        isHost:
+          type: boolean
+          description: ホストプレイヤーかどうか
+      required: [id, tehai, isHost]
