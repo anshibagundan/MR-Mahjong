@@ -44,9 +44,13 @@ const (
 	Tile5sr Tile = "5sr" // 索子赤ドラ
 )
 
+const (
+	totalTilesThreePlayer = 80
+)
+
 // ゲーム用全牌を取得（3人麻雀、計80枚）
 func GetAllTiles() []Tile {
-	tiles := make([]Tile, 0, 80)
+	tiles := make([]Tile, 0, totalTilesThreePlayer)
 
 	// 萬子（1mと9mのみ、各4枚）
 	for _, tile := range []Tile{Tile1m, Tile9m} {
