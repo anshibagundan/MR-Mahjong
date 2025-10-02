@@ -46,7 +46,7 @@
 ## 第2部 詳細設計書
 
 ### 2.1. システムアーキテクチャ
-アーキテクチャを大幅に簡略化し、**データベースを廃止**します。Goサーバーは、ルームID発行用のステートレスなAPIと、対局中の状態をメモリ上でのみ管理するWebSocketサーバーとして機能します。
+アーキテクチャを大幅に簡略化し、**データベースを廃止**します。Goサーバーは、ルームID発行用のステートレスなAPIと、対局中の状態をメモリ上でのみ管理するWebSocketサーバーとして機能します。対局状態（各クライアントの手牌、ワンパイ、公開情報）はサーバーが唯一の権威で保持し、クライアントは受信した状態に合わせて常に手牌を並び替えます。
 
 * **クライアント (Unity)**: 描画、入力処理、MR機能、Photon経由でのモデル同期を担当。
 * **Goサーバー**:
@@ -66,14 +66,22 @@
 | `/api/rooms` | `POST` | 新しい対局ルームを作成し、一意のIDを発行する。 | `{"roomId": "A1B2C3"}` |
 
 #### 2.2.2. 通信設計 (WebSocket)
-認証フローをなくし、ルームIDをクエリパラメータで渡して接続する方式に変更します。
+認証フローをなくし、ルームIDをクエリパラメータで渡して接続する方式に変更します。また用途に応じてWebSocketを2本に分離します。
 
-* **接続URL**: `ws://<server_address>/ws/game?roomId=<ルームID>`
-* **メッセージフォーマット**:
-    * **クライアント → サーバー (Action)**: `{"action": "action_name", "payload": {...}}`
-        * `action_name`: `discard_tile`, `pon`, `kan`, `ron`, `tsumo`
-    * **サーバー → クライアント (Event)**: `{"event": "event_name", "payload": {...}}`
-        * `event_name`: `game_started`, `player_drew_tile`, `player_discarded`, `next_turn`, `game_result`, `player_joined`
+* **ゲームWS**: `ws://<server_address>/ws/game?roomId=<ルームID>`
+    * 接続直後、サーバーが初期状態（手牌/山/ワンパイ/場風/親/点数など）を配信。
+    * 以降、サーバーはイベントで進行を通知し、クライアントはアクションのみ送信します。
+    * 形式（typeで識別）:
+        * **初期配信**: `{ "type": "initial_state", "playerId": "p1", "payload": { "handTiles"|"tehai": [...], ... } }`（実装では `tehai/yama/wanpai/oya/scores` を使用）
+        * **クライアント打牌**: `{ "type": "dahai", "payload": { "tile": "5p" } }`
+        * **サーバーイベント**: `{ "type": "event", "payload": { "playerId": "p1", "tehai": [...], "nextTurn": "p2", "kawa": { ... } } }`
+
+* **スコアWS**: `ws://<server_address>/ws/score?roomId=<ルームID>`
+    * 各クライアントはゲームWSと同時に接続を維持。
+    * 和了者は現在スコアと手牌情報を送信。他クライアントは受信のみでも可。
+    * 形式:
+        * **Client → Server**: `{"type":"score_input","payload":{"playerId":"p1","currentScores":{"p1":25000,"p2":25000,"p3":25000},"win":{"winnerId":"p1","handTiles":[...],"yaku":[...],"doras":2}}}`
+        * **Server → Client**: `{"type":"score_result","payload":{"deltas":{"p1":+4000,"p2":-2000,"p3":-2000},"newScores":{...},"winnerId":"p1","han":2}}`
 
 ### 2.3. クライアントサイド設計 (Unity)
 
