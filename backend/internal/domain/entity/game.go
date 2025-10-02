@@ -7,6 +7,12 @@ const (
 	GameStatusFinished = "finished"
 )
 
+// 3人麻雀 固定値
+const (
+	ThreePlayerMahjongMaxPlayers      = 3
+	InitialTileCapacityPerPlayerChild = 13
+)
+
 // プレイヤー構造体
 type Player struct {
 	ID     string `json:"id"`
@@ -33,9 +39,9 @@ type Game struct {
 // 新しいゲームを作成
 func NewGame() *Game {
 	return &Game{
-		Players:    make([]*Player, 0, 3),
+		Players:    make([]*Player, 0, ThreePlayerMahjongMaxPlayers),
 		Status:     GameStatusWaiting,
-		MaxPlayers: 3,
+		MaxPlayers: ThreePlayerMahjongMaxPlayers,
 	}
 }
 
@@ -48,7 +54,7 @@ func (g *Game) AddPlayer(playerID string) bool {
 	isHost := len(g.Players) == 0 // 最初のプレイヤーが親
 	player := &Player{
 		ID:     playerID,
-		Tehai:  make([]Tile, 0, 13),
+		Tehai:  make([]Tile, 0, InitialTileCapacityPerPlayerChild),
 		IsHost: isHost,
 	}
 
