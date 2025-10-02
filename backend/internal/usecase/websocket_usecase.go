@@ -3,8 +3,9 @@ package usecase
 import (
 	"encoding/json"
 	"log"
-	"mahjong-backend/internal/domain/entity"
 	"sync"
+
+	"mahjong-backend/internal/domain/entity"
 
 	"github.com/gorilla/websocket"
 )
@@ -69,12 +70,16 @@ func (u *WebSocketUsecase) sendMessage(conn *websocket.Conn, message *entity.Web
 func (u *WebSocketUsecase) HandleConnection(conn *websocket.Conn) {
 	var currentPlayerID string
 	defer func() {
-		conn.Close()
+		if err := conn.Close(); err != nil {
+			log.Printf("WebSocket close error: %v", err)
+		}
 		if currentPlayerID != "" {
 			u.RemoveConnection(currentPlayerID)
 			// 接続が失われた時にプレイヤーをゲームから削除
 			if u.gameUC.IsPlayerInGame(currentPlayerID) {
-				u.gameUC.RemovePlayerFromGame(currentPlayerID)
+				if err := u.gameUC.RemovePlayerFromGame(currentPlayerID); err != nil {
+					log.Printf("Failed to remove player from game: %v", err)
+				}
 			}
 		}
 	}()

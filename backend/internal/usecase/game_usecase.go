@@ -2,10 +2,11 @@ package usecase
 
 import (
 	"errors"
-	"mahjong-backend/internal/domain/entity"
 	"math/rand"
 	"sync"
 	"time"
+
+	"mahjong-backend/internal/domain/entity"
 )
 
 // ゲーム業務ロジック（メモリ保存）
@@ -101,7 +102,7 @@ func (u *GameUsecase) StartGame(wsUsecase *WebSocketUsecase) error {
 			Tehai:    player.Tehai,
 			Wanpai:   u.game.Wanpai,
 			Yama:     u.game.Yama,
-			Players:  u.createPlayersViewForPlayer(u.game.Players, player.ID),
+			Players:  u.createPlayersViewForPlayer(u.game.Players),
 		}
 
 		message := &entity.WebSocketMessage{
@@ -109,7 +110,9 @@ func (u *GameUsecase) StartGame(wsUsecase *WebSocketUsecase) error {
 			Data: gameStartMessage,
 		}
 
-		wsUsecase.SendToPlayer(player.ID, message)
+		if err := wsUsecase.SendToPlayer(player.ID, message); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -117,8 +120,8 @@ func (u *GameUsecase) StartGame(wsUsecase *WebSocketUsecase) error {
 
 // 牌配列をシャッフル
 func (u *GameUsecase) shuffleTiles(tiles []entity.Tile) {
-	rand.Seed(time.Now().UnixNano())
-	rand.Shuffle(len(tiles), func(i, j int) {
+	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+	rng.Shuffle(len(tiles), func(i, j int) {
 		tiles[i], tiles[j] = tiles[j], tiles[i]
 	})
 }
@@ -156,7 +159,7 @@ func (u *GameUsecase) distributeTiles(game *entity.Game, tiles []entity.Tile) {
 
 // 特定プレイヤー用のプレイヤー一覧を作成
 // 透明性のため全プレイヤーの手牌を表示
-func (u *GameUsecase) createPlayersViewForPlayer(allPlayers []*entity.Player, requestingPlayerID string) []*entity.Player {
+func (u *GameUsecase) createPlayersViewForPlayer(allPlayers []*entity.Player) []*entity.Player {
 	playersView := make([]*entity.Player, len(allPlayers))
 
 	for i, player := range allPlayers {

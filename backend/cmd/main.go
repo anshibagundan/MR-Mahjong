@@ -2,9 +2,10 @@ package main
 
 import (
 	"log"
+	"net/http"
+
 	"mahjong-backend/internal/interface/handler"
 	"mahjong-backend/internal/usecase"
-	"net/http"
 
 	"github.com/gin-gonic/gin"
 )

@@ -2,8 +2,9 @@ package handler
 
 import (
 	"log"
-	"mahjong-backend/internal/usecase"
 	"net/http"
+
+	"mahjong-backend/internal/usecase"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
@@ -21,8 +22,6 @@ func NewWebSocketHandler(wsUsecase *usecase.WebSocketUsecase) *WebSocketHandler 
 		wsUsecase: wsUsecase,
 		upgrader: websocket.Upgrader{
 			CheckOrigin: func(r *http.Request) bool {
-				// 開発環境では全オリジンを許可
-				// 本番環境では適切なオリジンチェックを実装
 				return true
 			},
 		},
