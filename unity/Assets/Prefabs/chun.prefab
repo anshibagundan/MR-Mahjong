@@ -133,7 +133,7 @@ GameObject:
   - component: {fileID: 5380428614731971241}
   - component: {fileID: 4207653138822239445}
   m_Layer: 0
-  m_Name: tyun
+  m_Name: chun
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
