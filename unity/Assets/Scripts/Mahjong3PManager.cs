@@ -9,6 +9,23 @@ using WebSocketSharp;
 using System.Collections;
 
 [System.Serializable]
+public class ConnectionResponse
+{
+    public string type;
+    public ConnectionData data;
+
+    [System.Serializable]
+    public class ConnectionData
+    {
+        public string playerId;
+        public int playersCount;
+        public int maxPlayers;
+        public string status;
+        public string message;
+    }
+}
+
+[System.Serializable]
 public class GameStartData {
     public string type;
     public Data data;
@@ -51,6 +68,7 @@ public class Mahjong3PManager : MonoBehaviourPunCallbacks
     public int MaxPlayers = 3;
     public float ConnectionTimeout = 10f;
     public int MaxRetryAttempts = 3;
+    public bool isFirstPlayer = false;
 
     private WebSocket ws;
     private Dictionary<string, GameObject> tilePrefabs = new Dictionary<string, GameObject>();
@@ -303,7 +321,15 @@ public class Mahjong3PManager : MonoBehaviourPunCallbacks
 
             if (gameData?.data != null)
             {
-                SetupGame(gameData);
+                if (isFirstPlayer)
+                {
+                    Debug.Log("First player - instantiating objects");
+                    SetupGame(gameData);
+                }
+                else
+                {
+                    Debug.Log("Not first player - do not instantiate yet");
+                }
             }
             else
             {
@@ -312,7 +338,12 @@ public class Mahjong3PManager : MonoBehaviourPunCallbacks
         }
         else if (typeCheck.type == "connection_response")
         {
-            Debug.Log("Connected to game server");
+            ConnectionResponse connResp = JsonUtility.FromJson<ConnectionResponse>(message);
+            if (connResp?.data != null)
+            {
+                isFirstPlayer = connResp.data.playersCount == 1;
+                Debug.Log($"isFirstPlayer set to {isFirstPlayer}");
+            }
         }
     }
 

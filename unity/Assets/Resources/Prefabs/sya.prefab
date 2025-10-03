@@ -16,8 +16,8 @@ GameObject:
   - component: {fileID: 783381239080734040}
   - component: {fileID: -8979665488325963302}
   - component: {fileID: 3251583769435876820}
-  - component: {fileID: 8425924032144904547}
   - component: {fileID: -8831764002563733404}
+  - component: {fileID: -1773175262187729232}
   m_Layer: 0
   m_Name: sya
   m_TagString: Untagged
@@ -205,26 +205,10 @@ MonoBehaviour:
   observableSearch: 2
   ObservedComponents:
   - {fileID: -8979665488325963302}
-  - {fileID: 8425924032144904547}
+  - {fileID: 0}
   sceneViewId: 0
   InstantiationId: 0
   isRuntimeInstantiated: 0
---- !u!114 &8425924032144904547
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2567531962144172235}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 64179f3720bbfe947b7724caa67b7c1d, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: PhotonUnityNetworking::Photon.Pun.PhotonRigidbodyView
-  m_SynchronizeVelocity: 1
-  m_SynchronizeAngularVelocity: 0
-  m_TeleportEnabled: 0
-  m_TeleportIfDistanceGreaterThan: 3
 --- !u!114 &-8831764002563733404
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -238,6 +222,19 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NetworkGrabbableOculus
   returnOwnershipToMasterOnRelease: 0
+--- !u!114 &-1773175262187729232
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2567531962144172235}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 933a9d4d9e9dd44a88948a24eb475b72, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::NetworkOwnershipOnSelect
+  autoReturnToMasterOnRelease: 0
 --- !u!1 &4158998644458655915
 GameObject:
   m_ObjectHideFlags: 0
