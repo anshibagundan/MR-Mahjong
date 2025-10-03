@@ -143,14 +143,15 @@ func (u *GameUsecase) distributeTiles(game *entity.Game, tiles []entity.Tile) {
 	}
 
 	// 王牌設定（計13枚）
-	// 表ドラ1枚 + 裏ドラ4枚 + 嶺上牌8枚 = 13枚
+	// 表ドラ1枚 + 裏ドラ4枚 + カンドラ4枚 + 嶺上牌4枚 = 13枚
 	wanpaiTiles := tiles[index : index+13]
 	index += 13
 
 	game.Wanpai = &entity.Wanpai{
 		RevealedDora:    []entity.Tile{wanpaiTiles[0]}, // 表ドラ1枚
-		UnrevealedDoras: wanpaiTiles[1:5],              // 裏ドラ4枚
-		Rinsyan:         wanpaiTiles[5:13],             // 嶺上牌8枚
+		KanDoras:        wanpaiTiles[6:10],             // カンドラ4枚
+		UnrevealedDoras: wanpaiTiles[1:6],              // 裏ドラ5枚
+		Rinsyan:         wanpaiTiles[10:14],            // 嶺上牌4枚
 	}
 
 	// 残り牌は山牌へ（108 - (14 + 13 + 13) - 13 = 55枚）

@@ -23,6 +23,7 @@ type Player struct {
 // 王牌構造体
 type Wanpai struct {
 	RevealedDora    []Tile `json:"revealedDora"`    // 表ドラ
+	KanDoras        []Tile `json:"kanDoras"`        // カンドラ（カン成立時に順次公開）
 	UnrevealedDoras []Tile `json:"unrevealedDoras"` // 裏ドラ
 	Rinsyan         []Tile `json:"rinsyan"`         // 嶺上牌
 }
