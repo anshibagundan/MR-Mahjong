@@ -1,13 +1,12 @@
 using System.Collections.Generic;
 using UnityEngine;
-using System.Threading;
-using System.Net.WebSockets;
 using System;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 using Photon.Pun;
 using Photon.Realtime;
+using WebSocketSharp;
+using System.Collections;
 
 [System.Serializable]
 public class GameStartData {
@@ -53,11 +52,13 @@ public class Mahjong3PManager : MonoBehaviourPunCallbacks
     public float ConnectionTimeout = 10f;
     public int MaxRetryAttempts = 3;
 
-    private ClientWebSocket ws;
-    private CancellationTokenSource cts;
+    private WebSocket ws;
     private Dictionary<string, GameObject> tilePrefabs = new Dictionary<string, GameObject>();
     private int retryCount = 0;
     private bool isConnecting = false;
+    private int webSocketRetryCount = 0;
+    private readonly Queue<Action> _mainThreadActions = new Queue<Action>();
+    private readonly object _actionsLock = new object();
 
     void Start()
     {
@@ -68,6 +69,21 @@ public class Mahjong3PManager : MonoBehaviourPunCallbacks
         {
             PhotonNetwork.ConnectUsingSettings();
             Debug.Log("Connecting to Photon...");
+        }
+    }
+
+    void Update()
+    {
+        // 実体生成などはメインスレッドで実行
+        if (_mainThreadActions.Count == 0) return;
+        lock (_actionsLock)
+        {
+            while (_mainThreadActions.Count > 0)
+            {
+                var action = _mainThreadActions.Dequeue();
+                try { action?.Invoke(); }
+                catch (Exception ex) { Debug.LogError($"MainThread action error: {ex.Message}"); }
+            }
         }
     }
 
@@ -135,7 +151,7 @@ public class Mahjong3PManager : MonoBehaviourPunCallbacks
         Debug.Log($"Players in room: {PhotonNetwork.CurrentRoom.PlayerCount}/{PhotonNetwork.CurrentRoom.MaxPlayers}");
 
         // WebSocket接続を開始
-        _ = StartWebSocketConnection();
+        StartWebSocketConnection();
     }
 
     // Photon切断時
@@ -179,161 +195,139 @@ public class Mahjong3PManager : MonoBehaviourPunCallbacks
         }
     }
 
-    // WebSocket接続処理（Photon接続後に実行）
-    async Task StartWebSocketConnection()
+    void RetryWebSocketConnection()
     {
-        if (ws != null && ws.State == WebSocketState.Open)
+        if (ws?.ReadyState != WebSocketState.Open)
+        {
+            Debug.Log("Retrying WebSocket connection...");
+            StartWebSocketConnection();
+        }
+    }
+
+    // WebSocket接続処理（Photon接続後に実行）
+    void StartWebSocketConnection()
+    {
+        if (ws != null && ws.ReadyState == WebSocketState.Open)
         {
             Debug.Log("WebSocket already connected");
             return;
         }
 
-        ws = new ClientWebSocket();
-        cts = new CancellationTokenSource();
-        ws.Options.RemoteCertificateValidationCallback = (sender, cert, chain, errors) => true;
+        Debug.Log("Starting WebSocket connection...");
 
-        Uri serverUri = new Uri("wss://app-37aa2340-1e0d-4ba5-aedf-d0383cb98c14.ingress.apprun.sakura.ne.jp/ws/game");
+        string serverUrl = "wss://app-37aa2340-1e0d-4ba5-aedf-d0383cb98c14.ingress.apprun.sakura.ne.jp/ws/game";
+        ws = new WebSocket(serverUrl);
 
-        try
-        {
-            // タイムアウト設定
-            using (var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(ConnectionTimeout)))
-            {
-                await ws.ConnectAsync(serverUri, timeoutCts.Token);
-            }
-
-            Debug.Log("WebSocket connected!");
-
-            if (ws.State != WebSocketState.Open)
-            {
-                Debug.LogError("WebSocket is not open after ConnectAsync");
-                return;
-            }
+        // WebSocketイベントハンドラーを設定
+        ws.OnOpen += (sender, e) => {
+            Debug.Log("WebSocket connected successfully!");
+            webSocketRetryCount = 0; // 接続成功時にリトライカウンターをリセット
 
             // プレイヤーIDを送信（UUIDを使用）
             string playerId = System.Guid.NewGuid().ToString();
             string sendMessage = $"{{\"type\":\"connection_check\",\"data\":{{\"playerId\":\"{playerId}\"}}}}";
-            var bytesToSend = new ArraySegment<byte>(Encoding.UTF8.GetBytes(sendMessage));
-            await ws.SendAsync(bytesToSend, WebSocketMessageType.Text, true, cts.Token);
+            Debug.Log($"Sending message: {sendMessage}");
+            ws.Send(sendMessage);
             Debug.Log($"Sent connection_check for {playerId}");
+        };
 
-            // 受信ループ
-            await ReceiveLoop();
-        }
-        catch (OperationCanceledException)
-        {
-            Debug.LogError("WebSocket connection timeout");
-        }
-        catch (System.Net.WebSockets.WebSocketException wsEx)
-        {
-            Debug.LogError($"WebSocket error: {wsEx.Message}");
-        }
-        catch (System.Net.Http.HttpRequestException httpEx)
-        {
-            Debug.LogError($"HTTP error: {httpEx.Message}");
-        }
-        catch (Exception ex)
-        {
-            Debug.LogError($"ConnectAsync failed: {ex.Message}");
-        }
+        ws.OnMessage += (sender, e) => {
+            // WebSocketSharpのコールバックは別スレッドの場合があるため、メインスレッドにディスパッチ
+            var payload = e.Data;
+            lock (_actionsLock)
+            {
+                _mainThreadActions.Enqueue(() => {
+                    ProcessWebSocketMessage(payload);
+                });
+            }
+        };
+
+        ws.OnError += (sender, e) => {
+            Debug.LogError($"WebSocket error: {e.Message}");
+        };
+
+        ws.OnClose += (sender, e) => {
+            Debug.LogWarning($"WebSocket closed: {e.Code}, {e.Reason}");
+
+            // WebSocket接続に失敗した場合の再試行
+            if (webSocketRetryCount < MaxRetryAttempts)
+            {
+                webSocketRetryCount++;
+                Debug.Log($"WebSocket connection failed. Retrying {webSocketRetryCount}/{MaxRetryAttempts} in 3 seconds...");
+                Invoke(nameof(RetryWebSocketConnection), 3f);
+            }
+            else if (webSocketRetryCount >= MaxRetryAttempts)
+            {
+                Debug.LogError("WebSocket connection failed after maximum retry attempts");
+            }
+        };
+
+        Debug.Log($"Connecting to: {serverUrl}");
+        ws.Connect();
     }
 
-    async Task ReceiveLoop()
+    void ProcessWebSocketMessage(string message)
     {
-        var buffer = new byte[1024 * 4];
-
+        // まず type だけチェック
+        TypeOnly typeCheck = null;
         try
         {
-            while (ws != null && ws.State == WebSocketState.Open)
-            {
-                var result = await ws.ReceiveAsync(new ArraySegment<byte>(buffer), cts.Token);
-                if (result.MessageType == WebSocketMessageType.Close)
-                {
-                    await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "", cts.Token);
-                    Debug.Log("WebSocket closed");
-                    break;
-                }
-                else
-                {
-                    string msg = Encoding.UTF8.GetString(buffer, 0, result.Count);
-                    Debug.Log("Received raw JSON: " + msg);
-
-                    // まず type だけチェック
-                    TypeOnly typeCheck = null;
-                    try
-                    {
-                        typeCheck = JsonUtility.FromJson<TypeOnly>(msg);
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.LogError("Failed to parse type: " + ex.Message);
-                        continue;
-                    }
-
-                    if (typeCheck == null || string.IsNullOrEmpty(typeCheck.type))
-                    {
-                        Debug.LogWarning("Received message without type, skipping");
-                        continue;
-                    }
-
-                    if (typeCheck.type == "game_start")
-                    {
-                        // game_start の場合のみ GameStartData にパース
-                        GameStartData gameData = null;
-                        try
-                        {
-                            gameData = JsonUtility.FromJson<GameStartData>(msg);
-                            Debug.Log("wanpai JSON: " + JsonUtility.ToJson(gameData.data.wanpai, true));
-                            Debug.Log($"yama count: {gameData?.data?.yama?.Count}");
-                            Debug.Log($"players count: {gameData?.data?.players?.Count}");
-                        }
-                        catch (Exception ex)
-                        {
-                            Debug.LogError("GameStartData deserialization failed: " + ex.Message);
-                            continue;
-                        }
-
-                        if (gameData?.data != null)
-                        {
-                            SetupGame(gameData);
-                        }
-                        else
-                        {
-                            Debug.LogError("gameData.data is null!");
-                        }
-                    }
-                    else
-                    {
-                        // それ以外の type の場合はログだけ出して無視
-                        Debug.Log($"Non-game-start message received, type: {typeCheck.type}");
-                    }
-                }
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            Debug.Log("WebSocket receive cancelled");
+            typeCheck = JsonUtility.FromJson<TypeOnly>(message);
         }
         catch (Exception ex)
         {
-            Debug.LogError($"WebSocket receive error: {ex.Message}");
+            Debug.LogError("Failed to parse type: " + ex.Message);
+            return;
+        }
+
+        if (typeCheck == null || string.IsNullOrEmpty(typeCheck.type))
+        {
+            Debug.LogWarning("Received message without type, skipping");
+            return;
+        }
+
+        if (typeCheck.type == "game_start")
+        {
+            // game_start の場合のみ GameStartData にパース
+            GameStartData gameData = null;
+            try
+            {
+                gameData = JsonUtility.FromJson<GameStartData>(message);
+                Debug.Log($"Game start - yama: {gameData?.data?.yama?.Count} tiles, players: {gameData?.data?.players?.Count}");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError("GameStartData deserialization failed: " + ex.Message);
+                return;
+            }
+
+            if (gameData?.data != null)
+            {
+                SetupGame(gameData);
+            }
+            else
+            {
+                Debug.LogError("gameData.data is null!");
+            }
+        }
+        else if (typeCheck.type == "connection_response")
+        {
+            Debug.Log("Connected to game server");
         }
     }
 
     void OnDestroy()
     {
         // WebSocket接続をクリーンアップ
-        if (cts != null)
-        {
-            cts.Cancel();
-            cts.Dispose();
-        }
-
-        if (ws != null && ws.State == WebSocketState.Open)
+        if (ws != null)
         {
             try
             {
-                ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Application closing", CancellationToken.None);
+                if (ws.ReadyState == WebSocketState.Open)
+                {
+                    ws.Close();
+                }
+                ws = null;
             }
             catch (Exception ex)
             {
@@ -344,18 +338,26 @@ public class Mahjong3PManager : MonoBehaviourPunCallbacks
 
     void SetupGame(GameStartData gameData)
     {
+        Debug.Log("Setting up game board...");
+
         // 山を配置（南・東・西）
         if (gameData.data.yama.Count > 0)
+        {
             PlaceMountain(gameData.data.yama.GetRange(0, Mathf.Min(36, gameData.data.yama.Count)),
                         new Vector3(0, 1.221f, -0.4f), Quaternion.identity); // 南
+        }
 
         if (gameData.data.yama.Count > 36)
+        {
             PlaceMountain(gameData.data.yama.GetRange(36, Mathf.Min(36, gameData.data.yama.Count - 36)),
                         new Vector3(0.4f, 1.221f, 0), Quaternion.Euler(0, 90, 0)); // 東
+        }
 
         if (gameData.data.yama.Count > 72)
+        {
             PlaceMountain(gameData.data.yama.GetRange(72, Mathf.Min(36, gameData.data.yama.Count - 72)),
                         new Vector3(-0.4f, 1.221f, 0), Quaternion.Euler(0, -90, 0)); // 西
+        }
 
         // ワンパイを配置
         PlaceWanpais(gameData.data.wanpai, new Vector3(0, 1.221f, 0.4f), Quaternion.Euler(0, 180, 0));
@@ -364,28 +366,46 @@ public class Mahjong3PManager : MonoBehaviourPunCallbacks
         PlaceHand(gameData.data.players[0].tehai, new Vector3(0, 1.221f, -0.7f), Quaternion.identity);
         PlaceHand(gameData.data.players[1].tehai, new Vector3(0.7f, 1.221f, 0), Quaternion.Euler(0, 270, 0));
         PlaceHand(gameData.data.players[2].tehai, new Vector3(0, 1.221f, 0.7f), Quaternion.Euler(0, 180, 0));
+
+        Debug.Log("Game board setup completed");
     }
 
     void LoadPrefabs()
     {
+        // JSONの牌名と実際のプレハブファイル名の対応
         string[] tileNames = {
             "1p","2p","3p","4p","5p","6p","7p","8p","9p","5pr",
-            "1m","2m","3m","4m","5m","6m","7m","8m","9m",
+            "1m","2m","3m","4m","5mr","6m","7m","8m","9m",  // 5mは5mrに修正（実際のプレハブファイル名）
             "1s","2s","3s","4s","5s","6s","7s","8s","9s","5sr",
             "ton","nan","sya","pe","haku","hatu","chun"
         };
 
+        int loadedCount = 0;
         foreach (var name in tileNames)
         {
             var prefab = Resources.Load<GameObject>($"Prefabs/{name}");
             if (prefab != null)
             {
                 tilePrefabs[name] = prefab;
+                loadedCount++;
             }
             else
             {
                 Debug.LogWarning($"Prefab not found: {name}");
             }
+        }
+        Debug.Log($"Loaded {loadedCount}/{tileNames.Length} tile prefabs");
+    }
+
+    // JSONの牌名を実際のプレハブ名にマッピング
+    string MapTileName(string jsonTileName)
+    {
+        // 特別な牌名のマッピング
+        switch (jsonTileName)
+        {
+            case "5pr": return "5pr";  // 赤5p
+            case "5sr": return "5sr";  // 赤5s
+            default: return jsonTileName;  // その他はそのまま
         }
     }
 
@@ -399,28 +419,45 @@ public class Mahjong3PManager : MonoBehaviourPunCallbacks
         parent.transform.rotation = rotation;
 
         int tilesPerMountain = Mathf.Min(tiles.Count, 36); // 山1つ分
+        int instantiatedCount = 0;
 
         for (int i = 0; i < tilesPerMountain; i++)
         {
-            string tileName = tiles[i];
-            if (!tilePrefabs.ContainsKey(tileName)) continue;
+            string jsonTileName = tiles[i];
+            string tileName = MapTileName(jsonTileName);  // 牌名をマッピング
+
+            if (!tilePrefabs.ContainsKey(tileName))
+            {
+                Debug.LogWarning($"Tile prefab not found: {tileName} (from JSON: {jsonTileName})");
+                continue;
+            }
 
             int row = i % 2;  // 0 or 1
             int col = i / 2;  // 0〜17
 
             float x = (8.5f - col) * tileWidth; // 中心揃え
-            float y = row * tileHeight - 0.00739f;
+            float y = 0.0041f + (row * tileHeight); // 手牌と同じ高さベース + 行の高さ
             float z = 0f; // 山の奥行き方向は固定（前後に重ねない）
 
-            GameObject tile = PhotonNetwork.Instantiate(
-                $"Prefabs/{tileName}",              // プレハブ名（Resources 下にあること）
-                parent.transform.position + new Vector3(x, y, z), // ワールド座標に変換
-                parent.transform.rotation,          // 親の回転を継承
-                0                                   // group
-            );
-            tile.transform.localPosition = new Vector3(x, y, z);
-            tile.transform.localRotation = Quaternion.identity;
+            try
+            {
+                GameObject tile = PhotonNetwork.Instantiate(
+                    $"Prefabs/{tileName}",              // プレハブ名（Resources 下にあること）
+                    parent.transform.position + new Vector3(x, y, z), // ワールド座標に変換
+                    parent.transform.rotation,          // 親の回転を継承
+                    0                                   // group
+                );
+                tile.transform.localPosition = new Vector3(x, y, z);
+                tile.transform.localRotation = Quaternion.identity;
+                instantiatedCount++;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"Failed to instantiate tile {tileName}: {ex.Message}");
+            }
         }
+
+        Debug.Log($"Mountain placed: {instantiatedCount}/{tilesPerMountain} tiles");
     }
 
     void PlaceWanpais(GameStartData.Wanpai wanpai, Vector3 centerPos, Quaternion rotation)
@@ -537,8 +574,14 @@ public class Mahjong3PManager : MonoBehaviourPunCallbacks
 
         for (int i = 0; i < count; i++)
         {
-            string tileName = handTiles[i];
-            if (!tilePrefabs.ContainsKey(tileName)) continue;
+            string jsonTileName = handTiles[i];
+            string tileName = MapTileName(jsonTileName);  // 牌名をマッピング
+
+            if (!tilePrefabs.ContainsKey(tileName))
+            {
+                Debug.LogWarning($"Hand tile prefab not found: {tileName} (from JSON: {jsonTileName})");
+                continue;
+            }
 
             Vector3 localPos = new Vector3(offset + i * spacing, 0.0041f, 0);
             Quaternion localRot = Quaternion.Euler(90, 0, 0);
