@@ -142,10 +142,10 @@ func (u *GameUsecase) distributeTiles(game *entity.Game, tiles []entity.Tile) {
 		}
 	}
 
-	// 王牌設定（計13枚）
-	// 表ドラ1枚 + 裏ドラ4枚 + カンドラ4枚 + 嶺上牌4枚 = 13枚
-	wanpaiTiles := tiles[index : index+13]
-	index += 13
+	// 王牌設定（計14枚）
+	// 表ドラ1枚 + 裏ドラ5枚 + カンドラ4枚 + 嶺上牌4枚 = 14枚
+	wanpaiTiles := tiles[index : index+14]
+	index += 14
 
 	game.Wanpai = &entity.Wanpai{
 		RevealedDora:    []entity.Tile{wanpaiTiles[0]}, // 表ドラ1枚
@@ -154,7 +154,7 @@ func (u *GameUsecase) distributeTiles(game *entity.Game, tiles []entity.Tile) {
 		Rinsyan:         wanpaiTiles[10:14],            // 嶺上牌4枚
 	}
 
-	// 残り牌は山牌へ（108 - (14 + 13 + 13) - 13 = 55枚）
+	// 残り牌は山牌へ（108 - (14 + 13 + 13) - 14 = 54枚）
 	game.Yama = tiles[index:]
 }
 
