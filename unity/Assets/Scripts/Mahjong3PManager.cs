@@ -1,5 +1,10 @@
 using System.Collections.Generic;
 using UnityEngine;
+using System.Threading;
+using System.Net.WebSockets;
+using System;
+using System.Linq;
+using System.Text;
 
 [System.Serializable]
 public class GameStartData {
@@ -8,7 +13,6 @@ public class GameStartData {
 
     [System.Serializable]
     public class Data {
-        public string gameId;
         public string playerId;
         public List<string> tehai;
         public Wanpai wanpai;
@@ -32,22 +36,144 @@ public class GameStartData {
     }
 }
 
+[System.Serializable]
+public class TypeOnly
+{
+    public string type;
+}
+
 public class Mahjong3PManager : MonoBehaviour
 {
+    private ClientWebSocket ws;
+    private CancellationTokenSource cts;
     private Dictionary<string, GameObject> tilePrefabs = new Dictionary<string, GameObject>();
 
-    void Start()
+    async void Start()
     {
         LoadPrefabs();
 
-        // ==== JSON相当のデータをハードコード ====
-        string jsonString = @"{""type"":""game_start"",""data"":{""playerId"":""p1"",""tehai"":[""4p"",""ton"",""4s"",""4s"",""2s"",""2s"",""3s"",""6s"",""3s"",""5pr"",""3s"",""7p"",""8s"",""2p""],""wanpai"":{""revealedDora"":[""ton""],""kanDoras"":[""9p"",""9s"",""1p"",""ton""],""unrevealedDoras"":[""2p"",""5p"",""7p"",""ton""],""rinsyan"":[""9p"",""2s"",""hatu"",""chun""]},""yama"":[""8s"",""5sr"",""8s"",""4p"",""1m"",""9p"",""1p"",""4p"",""9p"",""7s"",""5p"",""nan"",""9m"",""pe"",""nan"",""9m"",""haku"",""7p"",""sya"",""6p"",""3p"",""5s"",""5s"",""1s"",""1p"",""3p"",""haku"",""9m"",""6p"",""4p"",""9s"",""6p"",""pe"",""7p"",""3p"",""7s"",""6s"",""7s"",""haku"",""pe"",""pe"",""9m"",""9s"",""3s"",""nan"",""7s"",""sya"",""chun"",""8p"",""6p"",""1m"",""8s"",""hatu"",""chun"",""8p""],""players"":[{""id"":""p1"",""tehai"":[""4p"",""ton"",""4s"",""4s"",""2s"",""2s"",""3s"",""6s"",""3s"",""5pr"",""3s"",""7p"",""8s"",""2p""],""isHost"":true},{""id"":""p2"",""tehai"":[""sya"",""8p"",""2p"",""1p"",""haku"",""6s"",""3p"",""4s"",""1s"",""8p"",""nan"",""5p"",""6s""],""isHost"":false},{""id"":""p3"",""tehai"":[""1s"",""2p"",""hatu"",""1m"",""1s"",""sya"",""hatu"",""chun"",""9s"",""1m"",""4s"",""5s"",""2s""],""isHost"":false}]}}";
+        ws = new ClientWebSocket();
+        cts = new CancellationTokenSource();
 
-        // JSON → GameStartDataに変換
-        GameStartData gameData = JsonUtility.FromJson<GameStartData>(jsonString);
-        // ===============================
+        Uri serverUri = new Uri("ws://localhost:8080/ws/game");
 
-        // 山を配置（南・東・西）※yamaを分割して正確な枚数を生成
+        try
+        {
+            // WebSocket接続
+            await ws.ConnectAsync(serverUri, cts.Token);
+            Debug.Log("WebSocket connected!");
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError("ConnectAsync failed: " + ex.Message);
+            return; // 接続できなければここで終了
+        }
+
+        // 接続状態をチェック
+        if (ws.State != WebSocketState.Open)
+        {
+            Debug.LogError("WebSocket is not open after ConnectAsync");
+            return;
+        }
+
+        try
+        {
+            // プレイヤーIDを送信
+            string sendMessage = "{\"type\":\"connection_check\",\"data\":{\"playerId\":\"p3\"}}";
+            var bytesToSend = new ArraySegment<byte>(Encoding.UTF8.GetBytes(sendMessage));
+            await ws.SendAsync(bytesToSend, WebSocketMessageType.Text, true, cts.Token);
+            Debug.Log("Sent connection_check for p3");
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError("SendAsync failed: " + ex.Message);
+            return;
+        }
+
+        try
+        {
+            // 受信ループ
+            await ReceiveLoop();
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError("ReceiveLoop failed: " + ex.Message);
+        }
+    }
+
+    async System.Threading.Tasks.Task ReceiveLoop()
+    {
+        var buffer = new byte[1024 * 4];
+
+        while (ws.State == WebSocketState.Open)
+        {
+            var result = await ws.ReceiveAsync(new ArraySegment<byte>(buffer), cts.Token);
+            if (result.MessageType == WebSocketMessageType.Close)
+            {
+                await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "", cts.Token);
+                Debug.Log("WebSocket closed");
+            }
+            else
+            {
+                string msg = Encoding.UTF8.GetString(buffer, 0, result.Count);
+                Debug.Log("Received raw JSON: " + msg);
+
+                // まず type だけチェック
+                TypeOnly typeCheck = null;
+                try
+                {
+                    typeCheck = JsonUtility.FromJson<TypeOnly>(msg);
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogError("Failed to parse type: " + ex.Message);
+                    continue;
+                }
+
+                if (typeCheck == null || string.IsNullOrEmpty(typeCheck.type))
+                {
+                    Debug.LogWarning("Received message without type, skipping");
+                    continue;
+                }
+
+                if (typeCheck.type == "game_start")
+                {
+                    // game_start の場合のみ GameStartData にパース
+                    GameStartData gameData = null;
+                    try
+                    {
+                        gameData = JsonUtility.FromJson<GameStartData>(msg);
+                        Debug.Log("wanpai JSON: " + JsonUtility.ToJson(gameData.data.wanpai, true));
+                        Debug.Log($"yama count: {gameData?.data?.yama?.Count}");
+                        Debug.Log($"players count: {gameData?.data?.players?.Count}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.LogError("GameStartData deserialization failed: " + ex.Message);
+                        continue;
+                    }
+
+                    if (gameData?.data != null)
+                    {
+                        SetupGame(gameData);
+                    }
+                    else
+                    {
+                        Debug.LogError("gameData.data is null!");
+                    }
+                }
+                else
+                {
+                    // それ以外の type の場合はログだけ出して無視
+                    Debug.Log($"Non-game-start message received, type: {typeCheck.type}");
+                }
+            }
+        }
+    }
+
+    void SetupGame(GameStartData gameData)
+    {
+        // 山を配置（南・東・西）
         if (gameData.data.yama.Count > 0)
             PlaceMountain(gameData.data.yama.GetRange(0, Mathf.Min(36, gameData.data.yama.Count)),
                         new Vector3(0, 1.221f, -0.4f), Quaternion.identity); // 南
