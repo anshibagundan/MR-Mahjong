@@ -45,10 +45,10 @@ const (
 )
 
 const (
-	totalTilesThreePlayer = 80
+	totalTilesThreePlayer = 108
 )
 
-// ゲーム用全牌を取得（3人麻雀、計80枚）
+// ゲーム用全牌を取得（3人麻雀、計108枚）
 func GetAllTiles() []Tile {
 	tiles := make([]Tile, 0, totalTilesThreePlayer)
 

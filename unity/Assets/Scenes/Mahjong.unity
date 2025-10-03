@@ -679,6 +679,8 @@ MonoBehaviour:
   PhotonFailureObject: {fileID: 6542508044336232163, guid: 60fccd412f99643219f8d2c2839c450b, type: 3}
   RoomName: MahjongRoom
   MaxPlayers: 3
+  ConnectionTimeout: 10
+  MaxRetryAttempts: 3
 --- !u!4 &416758176
 Transform:
   m_ObjectHideFlags: 0
@@ -745,7 +747,7 @@ MonoBehaviour:
   _maxSelectingInteractors: -1
   _data: {fileID: 0}
   _pointableElement: {fileID: 175599264}
-  _rigidbody: {fileID: 175599263}
+  _rigidbody: {fileID: 0}
   _grabSource: {fileID: 0}
   _useClosestPointAsGrabSource: 0
   _releaseDistance: 0
@@ -768,7 +770,7 @@ MonoBehaviour:
   _maxSelectingInteractors: -1
   _data: {fileID: 0}
   _pointableElement: {fileID: 175599264}
-  _rigidbody: {fileID: 175599263}
+  _rigidbody: {fileID: 0}
   _physicsGrabbable: {fileID: 0}
   _resetGrabOnGrabsUpdated: 1
   _scoringModifier:
@@ -1671,6 +1673,86 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: c0a8738d22b3e483182b5a16b3cfa6e3, type: 3}
+--- !u!1001 &1271555311
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: -3337539625406452430, guid: 60fccd412f99643219f8d2c2839c450b, type: 3}
+      propertyPath: sceneViewId
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: -3337539625406452430, guid: 60fccd412f99643219f8d2c2839c450b, type: 3}
+      propertyPath: ObservedComponents.Array.size
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: -3337539625406452430, guid: 60fccd412f99643219f8d2c2839c450b, type: 3}
+      propertyPath: 'ObservedComponents.Array.data[0]'
+      value: 
+      objectReference: {fileID: 1271555312}
+    - target: {fileID: 317077313359831865, guid: 60fccd412f99643219f8d2c2839c450b, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0.00082
+      objectReference: {fileID: 0}
+    - target: {fileID: 317077313359831865, guid: 60fccd412f99643219f8d2c2839c450b, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: -0.02835
+      objectReference: {fileID: 0}
+    - target: {fileID: 317077313359831865, guid: 60fccd412f99643219f8d2c2839c450b, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: -0.00833
+      objectReference: {fileID: 0}
+    - target: {fileID: 317077313359831865, guid: 60fccd412f99643219f8d2c2839c450b, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 317077313359831865, guid: 60fccd412f99643219f8d2c2839c450b, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 317077313359831865, guid: 60fccd412f99643219f8d2c2839c450b, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 317077313359831865, guid: 60fccd412f99643219f8d2c2839c450b, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 317077313359831865, guid: 60fccd412f99643219f8d2c2839c450b, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 317077313359831865, guid: 60fccd412f99643219f8d2c2839c450b, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 317077313359831865, guid: 60fccd412f99643219f8d2c2839c450b, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6542508044336232163, guid: 60fccd412f99643219f8d2c2839c450b, type: 3}
+      propertyPath: m_Name
+      value: Plane
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 60fccd412f99643219f8d2c2839c450b, type: 3}
+--- !u!114 &1271555312 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 3530807261196677099, guid: 60fccd412f99643219f8d2c2839c450b, type: 3}
+  m_PrefabInstance: {fileID: 1271555311}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 627855c7f81362d41938ffe0b1475957, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: PhotonUnityNetworking::Photon.Pun.PhotonTransformView
 --- !u!1 &1307325006
 GameObject:
   m_ObjectHideFlags: 0
@@ -2278,3 +2360,4 @@ SceneRoots:
   - {fileID: 607510267}
   - {fileID: 1251001006}
   - {fileID: 416758176}
+  - {fileID: 1271555311}
