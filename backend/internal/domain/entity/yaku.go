@@ -18,6 +18,9 @@ type YakuEvaluationRequest struct {
 	UraDoraIndicators []string      `json:"uraDoraIndicators"`
 	RoundWind         string        `json:"roundWind"` // east, south, west, north
 	SeatWind          string        `json:"seatWind"`  // east, south, west, north
+	Tenhou            bool          `json:"tenhou"`    // 天和
+	Chiihou           bool          `json:"chiihou"`   // 地和
+	Renhou            bool          `json:"renhou"`    // 人和
 }
 
 // YakuItem represents a identified yaku
