@@ -45,37 +45,162 @@ public class Mahjong3PManager : MonoBehaviour
         {
             ""type"": ""game_start"",
             ""data"": {
-                ""gameId"": ""37df243b-b9aa-4c8b-8713-2d17fe57d598"",
                 ""playerId"": ""p1"",
-                ""tehai"": [""8p"", ""1s"", ""9p"", ""3s"", ""8s"", ""9p"", ""7s"", ""3p"", ""sya"", ""9p"", ""nan"", ""2p"", ""haku"", ""chun""],
+                ""tehai"": [
+                ""nan"",
+                ""chun"",
+                ""chun"",
+                ""hatu"",
+                ""6p"",
+                ""4p"",
+                ""4s"",
+                ""6p"",
+                ""9p"",
+                ""6s"",
+                ""hatu"",
+                ""7p"",
+                ""4p"",
+                ""2s""
+                ],
                 ""wanpai"": {
-                    ""revealedDora"": [""hatu""],
-                    ""kanDoras"": [""4s"", ""7s"", ""9s""],
-                    ""unrevealedDoras"": [""4p"", ""nan"", ""1m"", ""9s""],
-                    ""rinsyan"": [""5pr"", ""chun"", ""6p"", ""7p""]
+                ""revealedDora"": [
+                    ""8s""
+                ],
+                ""kanDoras"": [
+                    ""sya"",
+                    ""2p"",
+                    ""9p"",
+                    ""7s""
+                ],
+                ""unrevealedDoras"": [
+                    ""8s"",
+                    ""4s"",
+                    ""2s"",
+                    ""9s"",
+                    ""ton""
+                ],
+                ""rinsyan"": [
+                    ""5p"",
+                    ""3p"",
+                    ""5s"",
+                    ""5s""
+                ]
                 },
-                ""yama"": [""3p"",""pe"",""6s"",""3p"",""8p"",""8p"",""2p"",""hatu"",""ton"",""2s"",
-                          ""9m"",""8s"",""1s"",""9s"",""chun"",""pe"",""haku"",""sya"",""4p"",""2p"",
-                          ""sya"",""1p"",""9m"",""2s"",""5p"",""5s"",""5s"",""1m"",""3s"",""5s"",
-                          ""8s"",""9p"",""hatu"",""2s"",""7p"",""6s"",""2p"",""4s"",""7s"",""6s"",
-                          ""1p"",""5p"",""1m"",""ton"",""4s"",""haku"",""sya"",""7p"",""2s"",""9s"",
-                          ""ton"",""5p"",""3s"",""1s"",""4p""],
+                ""yama"": [
+                ""3p"",
+                ""3s"",
+                ""4s"",
+                ""7p"",
+                ""chun"",
+                ""sya"",
+                ""2p"",
+                ""8p"",
+                ""9m"",
+                ""2s"",
+                ""nan"",
+                ""3s"",
+                ""2p"",
+                ""6s"",
+                ""sya"",
+                ""haku"",
+                ""9p"",
+                ""5p"",
+                ""nan"",
+                ""ton"",
+                ""7s"",
+                ""nan"",
+                ""1m"",
+                ""5pr"",
+                ""4p"",
+                ""hatu"",
+                ""9m"",
+                ""3p"",
+                ""pe"",
+                ""haku"",
+                ""5s"",
+                ""7p"",
+                ""1m"",
+                ""9p"",
+                ""1p"",
+                ""9s"",
+                ""7s"",
+                ""4s"",
+                ""5sr"",
+                ""8p"",
+                ""2s"",
+                ""8p"",
+                ""9m"",
+                ""7s"",
+                ""1p"",
+                ""8s"",
+                ""9s"",
+                ""1s"",
+                ""4p"",
+                ""pe"",
+                ""pe"",
+                ""1s"",
+                ""2p"",
+                ""chun""
+                ],
                 ""players"": [
-                    {
-                        ""id"": ""p1"",
-                        ""tehai"": [""8p"", ""1s"", ""9p"", ""3s"", ""8s"", ""9p"", ""7s"", ""3p"", ""sya"", ""9p"", ""nan"", ""2p"", ""haku"", ""chun""],
-                        ""isHost"": true
-                    },
-                    {
-                        ""id"": ""p2"",
-                        ""tehai"": [""nan"",""4p"",""pe"",""6p"",""hatu"",""1m"",""5sr"",""7p"",""ton"",""9m"",""6p"",""9m"",""1p""],
-                        ""isHost"": false
-                    },
-                    {
-                        ""id"": ""p3"",
-                        ""tehai"": [""3p"",""1p"",""4s"",""7s"",""chun"",""6s"",""1s"",""nan"",""8p"",""pe"",""3s"",""8s"",""haku""],
-                        ""isHost"": false
-                    }
+                {
+                    ""id"": ""p1"",
+                    ""tehai"": [
+                    ""nan"",
+                    ""chun"",
+                    ""chun"",
+                    ""hatu"",
+                    ""6p"",
+                    ""4p"",
+                    ""4s"",
+                    ""6p"",
+                    ""9p"",
+                    ""6s"",
+                    ""hatu"",
+                    ""7p"",
+                    ""4p"",
+                    ""2s""
+                    ],
+                    ""isHost"": true
+                },
+                {
+                    ""id"": ""p2"",
+                    ""tehai"": [
+                    ""5p"",
+                    ""ton"",
+                    ""7p"",
+                    ""3p"",
+                    ""1m"",
+                    ""6s"",
+                    ""3s"",
+                    ""8s"",
+                    ""1s"",
+                    ""6p"",
+                    ""8p"",
+                    ""1m"",
+                    ""1p""
+                    ],
+                    ""isHost"": false
+                },
+                {
+                    ""id"": ""p3"",
+                    ""tehai"": [
+                    ""1s"",
+                    ""haku"",
+                    ""6p"",
+                    ""sya"",
+                    ""haku"",
+                    ""3s"",
+                    ""pe"",
+                    ""hatu"",
+                    ""1p"",
+                    ""6s"",
+                    ""ton"",
+                    ""9s"",
+                    ""9m""
+                    ],
+                    ""isHost"": false
+                }
                 ]
             }
         }";
@@ -200,7 +325,7 @@ public class Mahjong3PManager : MonoBehaviour
             if (!tilePrefabs.ContainsKey(tileName)) continue;
 
             int row = 0;             // 2行目
-            int col = 5 - i;             // 左から順
+            int col = 6 - i;             // 左から順
             Vector3 pos = new Vector3(col * spacingX, row * spacingY, 0);
             Instantiate(tilePrefabs[tileName], parent.transform).transform.localPosition = pos;
         }
@@ -212,7 +337,7 @@ public class Mahjong3PManager : MonoBehaviour
             if (!tilePrefabs.ContainsKey(tileName)) continue;
 
             int row = 1;             // 3行目
-            int col = 5 - i;             // 左から順
+            int col = 6 - i;             // 左から順
             Vector3 pos = new Vector3(col * spacingX, row * spacingY, 0);
             Instantiate(tilePrefabs[tileName], parent.transform).transform.localPosition = pos;
         }
