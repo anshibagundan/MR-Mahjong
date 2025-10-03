@@ -41,53 +41,47 @@ public class Mahjong3PManager : MonoBehaviour
         LoadPrefabs();
 
         // ==== JSON相当のデータをハードコード ====
-        GameStartData gameData = new GameStartData {
-            type = "game_start",
-            data = new GameStartData.Data {
-                gameId = "37df243b-b9aa-4c8b-8713-2d17fe57d598",
-                playerId = "p1",
-                tehai = new List<string> {
-                    "8p", "1s", "9p", "3s", "8s", "9p", "7s", "3p", "sya", "9p", "nan", "2p", "haku", "chun"
+        string jsonString = @"
+        {
+            ""type"": ""game_start"",
+            ""data"": {
+                ""gameId"": ""37df243b-b9aa-4c8b-8713-2d17fe57d598"",
+                ""playerId"": ""p1"",
+                ""tehai"": [""8p"", ""1s"", ""9p"", ""3s"", ""8s"", ""9p"", ""7s"", ""3p"", ""sya"", ""9p"", ""nan"", ""2p"", ""haku"", ""chun""],
+                ""wanpai"": {
+                    ""revealedDora"": [""hatu""],
+                    ""kanDoras"": [""4s"", ""7s"", ""9s""],
+                    ""unrevealedDoras"": [""4p"", ""nan"", ""1m"", ""9s""],
+                    ""rinsyan"": [""5pr"", ""chun"", ""6p"", ""7p""]
                 },
-                wanpai = new GameStartData.Wanpai {
-                    revealedDora = new List<string> { "hatu" },
-                    kanDoras = new List<string> { "4s", "7s", "9s"},
-                    unrevealedDoras = new List<string> { "4p", "nan", "1m", "9s" },
-                    rinsyan = new List<string> { "5pr", "chun", "6p", "7p" }
-                },
-                yama = new List<string> {
-                    "3p","pe","6s","3p","8p","8p","2p","hatu","ton","2s",
-                    "9m","8s","1s","9s","chun","pe","haku","sya","4p","2p",
-                    "sya","1p","9m","2s","5p","5s","5s","1m","3s","5s",
-                    "8s","9p","hatu","2s","7p","6s","2p","4s","7s","6s",
-                    "1p","5p","1m","ton","4s","haku","sya","7p","2s","9s",
-                    "ton","5p","3s","1s","4p"
-                },
-                players = new List<GameStartData.Player> {
-                    new GameStartData.Player {
-                        id = "p1",
-                        tehai = new List<string> {
-                            "8p", "1s", "9p", "3s", "8s", "9p", "7s", "3p", "sya", "9p", "nan", "2p", "haku", "chun"
-                        },
-                        isHost = true
+                ""yama"": [""3p"",""pe"",""6s"",""3p"",""8p"",""8p"",""2p"",""hatu"",""ton"",""2s"",
+                          ""9m"",""8s"",""1s"",""9s"",""chun"",""pe"",""haku"",""sya"",""4p"",""2p"",
+                          ""sya"",""1p"",""9m"",""2s"",""5p"",""5s"",""5s"",""1m"",""3s"",""5s"",
+                          ""8s"",""9p"",""hatu"",""2s"",""7p"",""6s"",""2p"",""4s"",""7s"",""6s"",
+                          ""1p"",""5p"",""1m"",""ton"",""4s"",""haku"",""sya"",""7p"",""2s"",""9s"",
+                          ""ton"",""5p"",""3s"",""1s"",""4p""],
+                ""players"": [
+                    {
+                        ""id"": ""p1"",
+                        ""tehai"": [""8p"", ""1s"", ""9p"", ""3s"", ""8s"", ""9p"", ""7s"", ""3p"", ""sya"", ""9p"", ""nan"", ""2p"", ""haku"", ""chun""],
+                        ""isHost"": true
                     },
-                    new GameStartData.Player {
-                        id = "p2",
-                        tehai = new List<string> {
-                            "nan","4p","pe","6p","hatu","1m","5sr","7p","ton","9m","6p","9m","1p"
-                        },
-                        isHost = false
+                    {
+                        ""id"": ""p2"",
+                        ""tehai"": [""nan"",""4p"",""pe"",""6p"",""hatu"",""1m"",""5sr"",""7p"",""ton"",""9m"",""6p"",""9m"",""1p""],
+                        ""isHost"": false
                     },
-                    new GameStartData.Player {
-                        id = "p3",
-                        tehai = new List<string> {
-                            "3p","1p","4s","7s","chun","6s","1s","nan","8p","pe","3s","8s","haku"
-                        },
-                        isHost = false
+                    {
+                        ""id"": ""p3"",
+                        ""tehai"": [""3p"",""1p"",""4s"",""7s"",""chun"",""6s"",""1s"",""nan"",""8p"",""pe"",""3s"",""8s"",""haku""],
+                        ""isHost"": false
                     }
-                }
+                ]
             }
-        };
+        }";
+
+        // JSON → GameStartDataに変換
+        GameStartData gameData = JsonUtility.FromJson<GameStartData>(jsonString);
         // ===============================
 
         // 山を配置（南・東・西）※yamaを分割して正確な枚数を生成
