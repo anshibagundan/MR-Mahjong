@@ -14,9 +14,11 @@ func main() {
 	// usecase
 	gameUsecase := usecase.NewGameUsecase()
 	wsUsecase := usecase.NewWebSocketUsecase(gameUsecase)
+	yakuUsecase := usecase.NewYakuUsecase()
 
 	// handler
 	wsHandler := handler.NewWebSocketHandler(wsUsecase)
+	yakuHandler := handler.NewYakuHandler(yakuUsecase)
 
 	// gin
 	router := gin.Default()
@@ -44,6 +46,7 @@ func main() {
 		})
 	})
 	router.GET("/ws/game", wsHandler.HandleWebSocket)
+	router.POST("/api/v1/yaku", yakuHandler.HandleEvaluateYaku)
 
 	// server
 	port := ":8080"
