@@ -111,21 +111,21 @@ WebSocketクライアントで `ws://localhost:8080/ws/game` に接続後、以�
 ```bash
 websocat ws://localhost:8080/ws/game
 # 接続後、以下を入力:
-{"type":"connection_check","data":{"playerId":"player-1"}}
+{"type":"connection_check","data":{"playerId":"p1"}}
 ```
 
 **ターミナル2:**
 ```bash
 websocat ws://localhost:8080/ws/game
 # 接続後、以下を入力:
-{"type":"connection_check","data":{"playerId":"player-2"}}
+{"type":"connection_check","data":{"playerId":"p2"}}
 ```
 
 **ターミナル3:**
 ```bash
 websocat ws://localhost:8080/ws/game
 # 接続後、以下を入力:
-{"type":"connection_check","data":{"playerId":"player-3"}}
+{"type":"connection_check","data":{"playerId":"p3"}}
 ```
 
 
@@ -138,7 +138,12 @@ websocat ws://localhost:8080/ws/game
     "gameId": "ゲームID",
     "playerId": "プレイヤーID",
     "tehai": ["1m","2m","3m",...],
-    "wanpai": {...},
+    "wanpai": {
+      "revealedDora": ["hatu"],
+      "kanDoras": ["4s","7s","9s"],
+      "unrevealedDoras": ["4p","nan","1m","9s"],
+      "rinsyan": ["5pr","chun","6p","7p"]
+    },
     "yama": [...],
     "players": [
       {"id": "p1", "tehai": [...], "isHost": true},
