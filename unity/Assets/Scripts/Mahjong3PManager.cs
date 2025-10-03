@@ -5,6 +5,9 @@ using System.Net.WebSockets;
 using System;
 using System.Linq;
 using System.Text;
+using System.Threading.Tasks;
+using Photon.Pun;
+using Photon.Realtime;
 
 [System.Serializable]
 public class GameStartData {
@@ -42,131 +45,299 @@ public class TypeOnly
     public string type;
 }
 
-public class Mahjong3PManager : MonoBehaviour
+public class Mahjong3PManager : MonoBehaviourPunCallbacks
 {
+    public GameObject PhotonFailureObject;
+    public string RoomName = "MahjongRoom";
+    public int MaxPlayers = 3;
+    public float ConnectionTimeout = 10f;
+    public int MaxRetryAttempts = 3;
+
     private ClientWebSocket ws;
     private CancellationTokenSource cts;
     private Dictionary<string, GameObject> tilePrefabs = new Dictionary<string, GameObject>();
+    private int retryCount = 0;
+    private bool isConnecting = false;
 
-    async void Start()
+    void Start()
     {
         LoadPrefabs();
 
-        ws = new ClientWebSocket();
-        cts = new CancellationTokenSource();
-
-        Uri serverUri = new Uri("ws://localhost:8080/ws/game");
-
-        try
+        // Photonサーバーに接続
+        if (!PhotonNetwork.IsConnected)
         {
-            // WebSocket接続
-            await ws.ConnectAsync(serverUri, cts.Token);
-            Debug.Log("WebSocket connected!");
-        }
-        catch (Exception ex)
-        {
-            Debug.LogError("ConnectAsync failed: " + ex.Message);
-            return; // 接続できなければここで終了
-        }
-
-        // 接続状態をチェック
-        if (ws.State != WebSocketState.Open)
-        {
-            Debug.LogError("WebSocket is not open after ConnectAsync");
-            return;
-        }
-
-        try
-        {
-            // プレイヤーIDを送信
-            string sendMessage = "{\"type\":\"connection_check\",\"data\":{\"playerId\":\"p3\"}}";
-            var bytesToSend = new ArraySegment<byte>(Encoding.UTF8.GetBytes(sendMessage));
-            await ws.SendAsync(bytesToSend, WebSocketMessageType.Text, true, cts.Token);
-            Debug.Log("Sent connection_check for p3");
-        }
-        catch (Exception ex)
-        {
-            Debug.LogError("SendAsync failed: " + ex.Message);
-            return;
-        }
-
-        try
-        {
-            // 受信ループ
-            await ReceiveLoop();
-        }
-        catch (Exception ex)
-        {
-            Debug.LogError("ReceiveLoop failed: " + ex.Message);
+            PhotonNetwork.ConnectUsingSettings();
+            Debug.Log("Connecting to Photon...");
         }
     }
 
-    async System.Threading.Tasks.Task ReceiveLoop()
+
+    void OnApplicationPause(bool pauseStatus)
+    {
+        if (pauseStatus)
+        {
+            Debug.Log("Application paused - maintaining connection");
+        }
+        else
+        {
+            Debug.Log("Application resumed - checking connection");
+            if (!PhotonNetwork.IsConnected && !isConnecting)
+            {
+                Debug.Log("Reconnecting to Photon after resume");
+                isConnecting = true;
+                PhotonNetwork.ConnectUsingSettings();
+            }
+        }
+    }
+
+    void OnApplicationFocus(bool hasFocus)
+    {
+        if (hasFocus)
+        {
+            Debug.Log("Application gained focus - checking connections");
+            if (!PhotonNetwork.IsConnected && !isConnecting)
+            {
+                Debug.Log("Reconnecting to Photon after focus");
+                isConnecting = true;
+                PhotonNetwork.ConnectUsingSettings();
+            }
+        }
+        else
+        {
+            Debug.Log("Application lost focus");
+        }
+    }
+
+    // Photon マスターサーバーに接続成功時
+    public override void OnConnectedToMaster()
+    {
+        Debug.Log("Connected to Photon Master Server");
+        isConnecting = false;
+        retryCount = 0;
+        // 固定ルームに参加
+        PhotonNetwork.JoinRoom(RoomName);
+    }
+
+    // ルーム参加失敗時（ルームが存在しない場合）
+    public override void OnJoinRoomFailed(short returnCode, string message)
+    {
+        Debug.Log($"Failed to join room: {message}. Creating new room...");
+        // ルームを新規作成（最大3人まで）
+        RoomOptions roomOptions = new RoomOptions();
+        roomOptions.MaxPlayers = (byte)MaxPlayers;
+        PhotonNetwork.CreateRoom(RoomName, roomOptions);
+    }
+
+    // ルーム参加成功時
+    public override void OnJoinedRoom()
+    {
+        Debug.Log($"Joined room: {PhotonNetwork.CurrentRoom.Name}");
+        Debug.Log($"Players in room: {PhotonNetwork.CurrentRoom.PlayerCount}/{PhotonNetwork.CurrentRoom.MaxPlayers}");
+
+        // WebSocket接続を開始
+        _ = StartWebSocketConnection();
+    }
+
+    // Photon切断時
+    public override void OnDisconnected(DisconnectCause cause)
+    {
+        base.OnDisconnected(cause);
+        isConnecting = false;
+
+        Debug.LogError("Disconnected from Photon: " + cause.ToString());
+
+        // タイムアウトや一時的な接続問題の場合は再試行
+        if ((cause == DisconnectCause.ClientTimeout || cause == DisconnectCause.ServerTimeout ||
+             cause == DisconnectCause.DisconnectByServerLogic || cause == DisconnectCause.DisconnectByServerReasonUnknown ||
+             cause == DisconnectCause.Exception || cause == DisconnectCause.ExceptionOnConnect) &&
+            retryCount < MaxRetryAttempts)
+        {
+            retryCount++;
+            Debug.Log($"Attempting reconnection {retryCount}/{MaxRetryAttempts}...");
+            Invoke(nameof(RetryConnection), 2f); // 2秒後に再試行
+            return;
+        }
+
+        // 最終的に接続に失敗した場合、PhotonFailureObjectを表示
+        if (PhotonFailureObject != null)
+        {
+            // ローカルにオブジェクトをInstantiateする例
+            Instantiate(PhotonFailureObject, new Vector3(0f, 0f, 0f), Quaternion.identity);
+        }
+        else
+        {
+            Debug.LogWarning("PhotonFailureObject is not set in the inspector.");
+        }
+    }
+
+    void RetryConnection()
+    {
+        if (!PhotonNetwork.IsConnected && !isConnecting)
+        {
+            isConnecting = true;
+            PhotonNetwork.ConnectUsingSettings();
+        }
+    }
+
+    // WebSocket接続処理（Photon接続後に実行）
+    async Task StartWebSocketConnection()
+    {
+        if (ws != null && ws.State == WebSocketState.Open)
+        {
+            Debug.Log("WebSocket already connected");
+            return;
+        }
+
+        ws = new ClientWebSocket();
+        cts = new CancellationTokenSource();
+        ws.Options.RemoteCertificateValidationCallback = (sender, cert, chain, errors) => true;
+
+        Uri serverUri = new Uri("wss://app-37aa2340-1e0d-4ba5-aedf-d0383cb98c14.ingress.apprun.sakura.ne.jp/ws/game");
+
+        try
+        {
+            // タイムアウト設定
+            using (var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(ConnectionTimeout)))
+            {
+                await ws.ConnectAsync(serverUri, timeoutCts.Token);
+            }
+
+            Debug.Log("WebSocket connected!");
+
+            if (ws.State != WebSocketState.Open)
+            {
+                Debug.LogError("WebSocket is not open after ConnectAsync");
+                return;
+            }
+
+            // プレイヤーIDを送信（UUIDを使用）
+            string playerId = System.Guid.NewGuid().ToString();
+            string sendMessage = $"{{\"type\":\"connection_check\",\"data\":{{\"playerId\":\"{playerId}\"}}}}";
+            var bytesToSend = new ArraySegment<byte>(Encoding.UTF8.GetBytes(sendMessage));
+            await ws.SendAsync(bytesToSend, WebSocketMessageType.Text, true, cts.Token);
+            Debug.Log($"Sent connection_check for {playerId}");
+
+            // 受信ループ
+            await ReceiveLoop();
+        }
+        catch (OperationCanceledException)
+        {
+            Debug.LogError("WebSocket connection timeout");
+        }
+        catch (System.Net.WebSockets.WebSocketException wsEx)
+        {
+            Debug.LogError($"WebSocket error: {wsEx.Message}");
+        }
+        catch (System.Net.Http.HttpRequestException httpEx)
+        {
+            Debug.LogError($"HTTP error: {httpEx.Message}");
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"ConnectAsync failed: {ex.Message}");
+        }
+    }
+
+    async Task ReceiveLoop()
     {
         var buffer = new byte[1024 * 4];
 
-        while (ws.State == WebSocketState.Open)
+        try
         {
-            var result = await ws.ReceiveAsync(new ArraySegment<byte>(buffer), cts.Token);
-            if (result.MessageType == WebSocketMessageType.Close)
+            while (ws != null && ws.State == WebSocketState.Open)
             {
-                await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "", cts.Token);
-                Debug.Log("WebSocket closed");
-            }
-            else
-            {
-                string msg = Encoding.UTF8.GetString(buffer, 0, result.Count);
-                Debug.Log("Received raw JSON: " + msg);
-
-                // まず type だけチェック
-                TypeOnly typeCheck = null;
-                try
+                var result = await ws.ReceiveAsync(new ArraySegment<byte>(buffer), cts.Token);
+                if (result.MessageType == WebSocketMessageType.Close)
                 {
-                    typeCheck = JsonUtility.FromJson<TypeOnly>(msg);
-                }
-                catch (Exception ex)
-                {
-                    Debug.LogError("Failed to parse type: " + ex.Message);
-                    continue;
-                }
-
-                if (typeCheck == null || string.IsNullOrEmpty(typeCheck.type))
-                {
-                    Debug.LogWarning("Received message without type, skipping");
-                    continue;
-                }
-
-                if (typeCheck.type == "game_start")
-                {
-                    // game_start の場合のみ GameStartData にパース
-                    GameStartData gameData = null;
-                    try
-                    {
-                        gameData = JsonUtility.FromJson<GameStartData>(msg);
-                        Debug.Log("wanpai JSON: " + JsonUtility.ToJson(gameData.data.wanpai, true));
-                        Debug.Log($"yama count: {gameData?.data?.yama?.Count}");
-                        Debug.Log($"players count: {gameData?.data?.players?.Count}");
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.LogError("GameStartData deserialization failed: " + ex.Message);
-                        continue;
-                    }
-
-                    if (gameData?.data != null)
-                    {
-                        SetupGame(gameData);
-                    }
-                    else
-                    {
-                        Debug.LogError("gameData.data is null!");
-                    }
+                    await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "", cts.Token);
+                    Debug.Log("WebSocket closed");
+                    break;
                 }
                 else
                 {
-                    // それ以外の type の場合はログだけ出して無視
-                    Debug.Log($"Non-game-start message received, type: {typeCheck.type}");
+                    string msg = Encoding.UTF8.GetString(buffer, 0, result.Count);
+                    Debug.Log("Received raw JSON: " + msg);
+
+                    // まず type だけチェック
+                    TypeOnly typeCheck = null;
+                    try
+                    {
+                        typeCheck = JsonUtility.FromJson<TypeOnly>(msg);
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.LogError("Failed to parse type: " + ex.Message);
+                        continue;
+                    }
+
+                    if (typeCheck == null || string.IsNullOrEmpty(typeCheck.type))
+                    {
+                        Debug.LogWarning("Received message without type, skipping");
+                        continue;
+                    }
+
+                    if (typeCheck.type == "game_start")
+                    {
+                        // game_start の場合のみ GameStartData にパース
+                        GameStartData gameData = null;
+                        try
+                        {
+                            gameData = JsonUtility.FromJson<GameStartData>(msg);
+                            Debug.Log("wanpai JSON: " + JsonUtility.ToJson(gameData.data.wanpai, true));
+                            Debug.Log($"yama count: {gameData?.data?.yama?.Count}");
+                            Debug.Log($"players count: {gameData?.data?.players?.Count}");
+                        }
+                        catch (Exception ex)
+                        {
+                            Debug.LogError("GameStartData deserialization failed: " + ex.Message);
+                            continue;
+                        }
+
+                        if (gameData?.data != null)
+                        {
+                            SetupGame(gameData);
+                        }
+                        else
+                        {
+                            Debug.LogError("gameData.data is null!");
+                        }
+                    }
+                    else
+                    {
+                        // それ以外の type の場合はログだけ出して無視
+                        Debug.Log($"Non-game-start message received, type: {typeCheck.type}");
+                    }
                 }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            Debug.Log("WebSocket receive cancelled");
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"WebSocket receive error: {ex.Message}");
+        }
+    }
+
+    void OnDestroy()
+    {
+        // WebSocket接続をクリーンアップ
+        if (cts != null)
+        {
+            cts.Cancel();
+            cts.Dispose();
+        }
+
+        if (ws != null && ws.State == WebSocketState.Open)
+        {
+            try
+            {
+                ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Application closing", CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"Error closing WebSocket: {ex.Message}");
             }
         }
     }
@@ -241,8 +412,14 @@ public class Mahjong3PManager : MonoBehaviour
             float y = row * tileHeight - 0.00739f;
             float z = 0f; // 山の奥行き方向は固定（前後に重ねない）
 
-            Instantiate(tilePrefabs[tileName], parent.transform)
-                .transform.localPosition = new Vector3(x, y, z);
+            GameObject tile = PhotonNetwork.Instantiate(
+                $"Prefabs/{tileName}",              // プレハブ名（Resources 下にあること）
+                parent.transform.position + new Vector3(x, y, z), // ワールド座標に変換
+                parent.transform.rotation,          // 親の回転を継承
+                0                                   // group
+            );
+            tile.transform.localPosition = new Vector3(x, y, z);
+            tile.transform.localRotation = Quaternion.identity;
         }
     }
 
@@ -264,8 +441,18 @@ public class Mahjong3PManager : MonoBehaviour
             int row = i % 2;
             int col = i / 2;
 
-            Vector3 pos = new Vector3(col * spacingX, row * spacingY, 0);
-            Instantiate(tilePrefabs[tileName], parent.transform).transform.localPosition = pos;
+            Vector3 pos = parent.transform.position + new Vector3(col * spacingX, row * spacingY, 0);
+
+            GameObject tile = PhotonNetwork.Instantiate(
+                $"Prefabs/{tileName}",  // Resources/Prefabs/ にあるプレハブ名
+                pos,                   // ワールド座標
+                parent.transform.rotation, // 親の回転を継承
+                0
+            );
+
+            // Photon は親子関係を自動では同期しないので、自分で設定する
+            tile.transform.SetParent(parent.transform);
+            tile.transform.localPosition = new Vector3(col * spacingX, row * spacingY, 0);
         }
 
         // ===== Revealed Dora =====
@@ -276,10 +463,19 @@ public class Mahjong3PManager : MonoBehaviour
 
             int row = 1;             // 2行目
             int col = 2 + i;         // 2列目以降
-            Vector3 pos = new Vector3(col * spacingX, row * spacingY, 0);
-            GameObject dora = Instantiate(tilePrefabs[tileName], parent.transform);
-            dora.transform.localPosition = pos;
-            dora.transform.localRotation = Quaternion.Euler(0, 0, 180); // z軸180°回転
+            // ローカル座標での位置・回転
+            Vector3 localPos = new Vector3(col * spacingX, row * spacingY, 0);
+            Quaternion localRot = Quaternion.Euler(0, 0, 180);
+
+            // 親のTransformを基準にワールド座標へ変換
+            Vector3 worldPos = parent.transform.TransformPoint(localPos);
+            Quaternion worldRot = parent.transform.rotation * localRot;
+
+            // Photonで生成
+            GameObject dora = PhotonNetwork.Instantiate($"Prefabs/{tileName}", worldPos, worldRot);
+
+            // 親子付け（Photonではparentを直接渡せないので後付け）
+            dora.transform.SetParent(parent.transform, true);
         }
 
         // ===== Unrevealed Dora =====
@@ -290,8 +486,18 @@ public class Mahjong3PManager : MonoBehaviour
 
             int row = 0;             // 2行目
             int col = 6 - i;             // 左から順
-            Vector3 pos = new Vector3(col * spacingX, row * spacingY, 0);
-            Instantiate(tilePrefabs[tileName], parent.transform).transform.localPosition = pos;
+            Vector3 pos = parent.transform.position + new Vector3(col * spacingX, row * spacingY, 0);
+
+            GameObject tile = PhotonNetwork.Instantiate(
+                $"Prefabs/{tileName}",  // Resources/Prefabs/ にあるプレハブ名
+                pos,                   // ワールド座標
+                parent.transform.rotation, // 親の回転を継承
+                0
+            );
+
+            // Photon は親子関係を自動では同期しないので、自分で設定する
+            tile.transform.SetParent(parent.transform);
+            tile.transform.localPosition = new Vector3(col * spacingX, row * spacingY, 0);
         }
 
         // ===== Kan Doras =====
@@ -302,8 +508,18 @@ public class Mahjong3PManager : MonoBehaviour
 
             int row = 1;             // 3行目
             int col = 6 - i;             // 左から順
-            Vector3 pos = new Vector3(col * spacingX, row * spacingY, 0);
-            Instantiate(tilePrefabs[tileName], parent.transform).transform.localPosition = pos;
+            Vector3 pos = parent.transform.position + new Vector3(col * spacingX, row * spacingY, 0);
+
+            GameObject tile = PhotonNetwork.Instantiate(
+                $"Prefabs/{tileName}",  // Resources/Prefabs/ にあるプレハブ名
+                pos,                   // ワールド座標
+                parent.transform.rotation, // 親の回転を継承
+                0
+            );
+
+            // Photon は親子関係を自動では同期しないので、自分で設定する
+            tile.transform.SetParent(parent.transform);
+            tile.transform.localPosition = new Vector3(col * spacingX, row * spacingY, 0);
         }
     }
 
@@ -324,10 +540,18 @@ public class Mahjong3PManager : MonoBehaviour
             string tileName = handTiles[i];
             if (!tilePrefabs.ContainsKey(tileName)) continue;
 
-            Vector3 pos = new Vector3(offset + i * spacing, 0.0041f, 0);
-            GameObject tehai = Instantiate(tilePrefabs[tileName], parent.transform);
-            tehai.transform.localPosition = pos;
-            tehai.transform.localRotation = Quaternion.Euler(90, 0, 0);
+            Vector3 localPos = new Vector3(offset + i * spacing, 0.0041f, 0);
+            Quaternion localRot = Quaternion.Euler(90, 0, 0);
+
+            // 親（親Transformのワールド座標に変換する）
+            Vector3 worldPos = parent.transform.TransformPoint(localPos);
+            Quaternion worldRot = parent.transform.rotation * localRot;
+
+            // Photonで生成（ワールド座標とワールド回転を渡す）
+            GameObject tehai = PhotonNetwork.Instantiate($"Prefabs/{tileName}", worldPos, worldRot);
+
+            // 親子付け（PhotonNetwork.Instantiate では parent 指定できないので後付けする必要あり）
+            tehai.transform.SetParent(parent.transform, true);
         }
     }
 }
