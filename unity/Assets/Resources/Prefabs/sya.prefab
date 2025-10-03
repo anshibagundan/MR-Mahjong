@@ -184,7 +184,7 @@ MonoBehaviour:
   m_SynchronizePosition: 1
   m_SynchronizeRotation: 1
   m_SynchronizeScale: 0
-  m_UseLocal: 1
+  m_UseLocal: 0
 --- !u!114 &3251583769435876820
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -202,10 +202,9 @@ MonoBehaviour:
   prefixField: -1
   Synchronization: 3
   OwnershipTransfer: 2
-  observableSearch: 2
+  observableSearch: 0
   ObservedComponents:
   - {fileID: -8979665488325963302}
-  - {fileID: 0}
   sceneViewId: 0
   InstantiationId: 0
   isRuntimeInstantiated: 0

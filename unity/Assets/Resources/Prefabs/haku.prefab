@@ -303,7 +303,7 @@ MonoBehaviour:
   prefixField: -1
   Synchronization: 3
   OwnershipTransfer: 2
-  observableSearch: 2
+  observableSearch: 0
   ObservedComponents:
   - {fileID: 1126937012977738252}
   sceneViewId: 0
@@ -324,7 +324,7 @@ MonoBehaviour:
   m_SynchronizePosition: 1
   m_SynchronizeRotation: 1
   m_SynchronizeScale: 0
-  m_UseLocal: 1
+  m_UseLocal: 0
 --- !u!114 &-8454461194050726960
 MonoBehaviour:
   m_ObjectHideFlags: 0
