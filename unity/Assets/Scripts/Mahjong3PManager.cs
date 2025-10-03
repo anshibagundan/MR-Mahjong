@@ -435,20 +435,17 @@ public class Mahjong3PManager : MonoBehaviourPunCallbacks
             int row = i % 2;  // 0 or 1
             int col = i / 2;  // 0〜17
 
-            float x = (8.5f - col) * tileWidth; // 中心揃え
-            float y = 0.0041f + (row * tileHeight); // 手牌と同じ高さベース + 行の高さ
-            float z = 0f; // 山の奥行き方向は固定（前後に重ねない）
+            Vector3 localPos = new Vector3((8.5f - col) * tileWidth, 0.0041f + (row * tileHeight), 0f);
+            Quaternion localRot = Quaternion.identity;
+
+            // 親のTransform基準でワールド座標と回転に変換
+            Vector3 worldPos = parent.transform.TransformPoint(localPos);
+            Quaternion worldRot = parent.transform.rotation * localRot;
 
             try
             {
-                GameObject tile = PhotonNetwork.Instantiate(
-                    $"Prefabs/{tileName}",              // プレハブ名（Resources 下にあること）
-                    parent.transform.position + new Vector3(x, y, z), // ワールド座標に変換
-                    parent.transform.rotation,          // 親の回転を継承
-                    0                                   // group
-                );
-                tile.transform.localPosition = new Vector3(x, y, z);
-                tile.transform.localRotation = Quaternion.identity;
+                GameObject tile = PhotonNetwork.Instantiate($"Prefabs/{tileName}", worldPos, worldRot);
+                tile.transform.SetParent(parent.transform, true); // 親子付け
                 instantiatedCount++;
             }
             catch (Exception ex)
@@ -459,6 +456,7 @@ public class Mahjong3PManager : MonoBehaviourPunCallbacks
 
         Debug.Log($"Mountain placed: {instantiatedCount}/{tilesPerMountain} tiles");
     }
+
 
     void PlaceWanpais(GameStartData.Wanpai wanpai, Vector3 centerPos, Quaternion rotation)
     {
