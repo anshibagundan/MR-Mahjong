@@ -15,6 +15,8 @@ tags:
     description: ヘルスチェック
   - name: websocket
     description: WebSocket接続とメッセージ
+  - name: REST
+    description: REST API
 paths:
   /health:
     get:
@@ -125,6 +127,70 @@ paths:
                   error:
                     type: string
                     example: "Failed to upgrade to WebSocket"
+  /api/v1/yaku:
+    post:
+      tags: [REST]
+      summary: Evaluate yaku
+      description: 手牌/副露/和了状況から役と符・翻を判定します。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/YakuEvaluationRequest'
+            examples:
+              sample:
+                summary: リーチ自摸 + 白
+                value:
+                  tehai: [1m,1m,2m,3m,3m,4p,4p,5p,6p,7s,7s,7s,白,白]
+                  openMelds:
+                    - type: pon
+                      tiles: [白, 白, 白]
+                  winTile: 白
+                  isTsumo: true
+                  riichi: true
+                  ippatsu: false
+                  doraIndicators: [2p]
+                  uraDoraIndicators: [3p]
+                  roundWind: east
+                  seatWind: south
+      responses:
+        '200':
+          description: 判定結果
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/YakuEvaluationResponse'
+              examples:
+                result:
+                  value:
+                    yaku:
+                      - name: 門前清自摸和
+                        han: 1
+                      - name: 役牌(白)
+                        han: 1
+                      - name: 立直
+                        han: 1
+                    fu: 0
+                    han: 3
+                    doraCount: 1
+                    uraDoraCount: 1
+                    totalHan: 5
+                    yakuman: []
+                    score: 2000
+                    isChombo: false
+                chombo:
+                  summary: チョンボ例
+                  value:
+                    yaku: []
+                    fu: 0
+                    han: 0
+                    doraCount: 0
+                    uraDoraCount: 0
+                    totalHan: 0
+                    yakuman: []
+                    score: 0
+                    isChombo: true
 components:
   schemas:
     # WebSocket Messages
@@ -267,3 +333,77 @@ components:
           type: boolean
           description: ホストプレイヤーかどうか
       required: [id, tehai, isHost]
+    YakuEvaluationRequest:
+      type: object
+      properties:
+        tehai:
+          type: array
+          items:
+            $ref: '#/components/schemas/Tile'
+        openMelds:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+                enum: [pon, chi, kan]
+              tiles:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Tile'
+        winTile:
+          $ref: '#/components/schemas/Tile'
+        isTsumo:
+          type: boolean
+        riichi:
+          type: boolean
+        ippatsu:
+          type: boolean
+        doraIndicators:
+          type: array
+          items:
+            $ref: '#/components/schemas/Tile'
+        uraDoraIndicators:
+          type: array
+          items:
+            $ref: '#/components/schemas/Tile'
+        roundWind:
+          type: string
+          enum: [east, south, west, north]
+        seatWind:
+          type: string
+          enum: [east, south, west, north]
+      required: [tehai, winTile, isTsumo, riichi]
+
+    YakuEvaluationResponse:
+      type: object
+      properties:
+        yaku:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              han:
+                type: integer
+        fu:
+          type: integer
+        han:
+          type: integer
+        doraCount:
+          type: integer
+        uraDoraCount:
+          type: integer
+        totalHan:
+          type: integer
+        yakuman:
+          type: array
+          items:
+            type: string
+        score:
+          type: integer
+        isChombo:
+          type: boolean
+          description: チョンボ（不正な手牌）かどうか
