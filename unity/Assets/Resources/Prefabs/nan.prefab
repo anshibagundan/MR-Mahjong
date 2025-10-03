@@ -16,8 +16,8 @@ GameObject:
   - component: {fileID: 801479747287149971}
   - component: {fileID: -656513380835381408}
   - component: {fileID: 9162721085052688457}
-  - component: {fileID: 724608257145565590}
   - component: {fileID: 5504942961488688998}
+  - component: {fileID: -3276238055556200834}
   m_Layer: 0
   m_Name: nan
   m_TagString: Untagged
@@ -185,7 +185,7 @@ MonoBehaviour:
   Group: 0
   prefixField: -1
   Synchronization: 3
-  OwnershipTransfer: 2
+  OwnershipTransfer: 1
   observableSearch: 0
   ObservedComponents:
   - {fileID: 9162721085052688457}
@@ -208,19 +208,6 @@ MonoBehaviour:
   m_SynchronizeRotation: 1
   m_SynchronizeScale: 0
   m_UseLocal: 0
---- !u!114 &724608257145565590
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 5330265013726007653}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c7c26b1ea914543ac991c1c69454cbc5, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::NetworkGrabbableOculus
-  returnOwnershipToMasterOnRelease: 0
 --- !u!114 &5504942961488688998
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -233,7 +220,20 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 933a9d4d9e9dd44a88948a24eb475b72, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::NetworkOwnershipOnSelect
-  autoReturnToMasterOnRelease: 0
+  returnToMasterOnRelease: 0
+  enableDebugLogs: 1
+--- !u!114 &-3276238055556200834
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5330265013726007653}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0c8534c2433874315b67f04247a8568c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::GrabbableNetworkBridge
 --- !u!1 &8691386993869682260
 GameObject:
   m_ObjectHideFlags: 0

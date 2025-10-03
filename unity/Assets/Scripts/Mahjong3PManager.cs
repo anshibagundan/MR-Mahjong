@@ -85,6 +85,9 @@ public class Mahjong3PManager : MonoBehaviourPunCallbacks
         // Photonサーバーに接続
         if (!PhotonNetwork.IsConnected)
         {
+            // ネットワーク同期の設定を最適化
+            PhotonNetwork.SendRate = 30;
+            PhotonNetwork.SerializationRate = 15;
             PhotonNetwork.ConnectUsingSettings();
             Debug.Log("Connecting to Photon...");
         }
