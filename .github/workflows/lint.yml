@@ -33,4 +33,3 @@ jobs:
         run: |
           golangci-lint run --timeout=5m --skip-dirs '(?i)internal/swagger|^gen($|/)' ./...
 
-

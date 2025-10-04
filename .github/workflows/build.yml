@@ -38,4 +38,3 @@ jobs:
           go work sync || true
           go build ./...
 
-

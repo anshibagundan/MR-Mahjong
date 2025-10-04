@@ -1,0 +1,39 @@
+version: "1.59"
+run:
+  timeout: 5m
+  issues-exit-code: 1
+  tests: true
+
+linters:
+  enable:
+    - errcheck
+    - gofmt
+    - goimports
+    - govet
+    - staticcheck
+    - unused
+    - ineffassign
+    - stylecheck
+    - unparam
+    - mnd
+  disable:
+    - depguard
+    - funlen
+    - gocyclo
+    - lll
+    - gocritic
+    - dupl
+    - gosec
+    - dogsled
+    - rowserrcheck
+    - nakedret
+    - noctx
+    - nolintlint
+    - unconvert
+    - goprintffuncname
+    - gosimple
+
+issues:
+  max-issues-per-linter: 50
+  max-same-issues: 3
+
